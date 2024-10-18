@@ -57,7 +57,7 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - uses: docker/build-push-action@v6
         with:
-          context: ${{ inputs.build-name }}
+          context: ${{ inputs.build-context }}
           push: true
           tags: ${{ inputs.build-name }}:${{ env.sha_short }}
 
