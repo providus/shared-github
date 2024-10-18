@@ -74,7 +74,7 @@ jobs:
         run: |
           set -x
           echo ${{ env.GITHUB_REPOSITORY }} 
-          echo ${REPO_NAME}
+          export | grep -v GITHUB
           
           #curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           #sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
