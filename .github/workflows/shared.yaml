@@ -74,8 +74,11 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
         run: |
+          set -x
           curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          
+          argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}
  
           echo "repo_name=$(echo ${{ inputs.repo-name }} | cut -f2 -d\/ )" >> $GITHUB_ENV
           echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
