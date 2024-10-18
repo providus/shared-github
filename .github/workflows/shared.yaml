@@ -25,6 +25,10 @@ on:
         required: true
         type: string
         description: "ArgoCD hostname"
+      tenant:
+        required: true
+        type: string
+        description: "Tenant name"
     secrets:
       cr-pass:
         required: true
@@ -55,20 +59,25 @@ jobs:
         with:
           context: ${{ inputs.build-name }}
           push: true
-          tags: ${{ inputs.image-name }}:${{ env.sha_short }}
+          tags: ${{ inputs.build-name }}:${{ env.sha_short }}
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: ${{ fromJson(needs.build.outputs.matrix_targets) }}
     steps:
       - name: Deploy ${{ matrix.target }}
-        uses: clowdhaus/argo-cd-action@v2.2.0
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
-        with:
-          version: 2.11.7
-          command: --grpc-web app set infra--video-${{ matrix.target }}--thq -p image.tag=${{ needs.build.outputs.sha_short }}
+        run: |
+          run: |
+            curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+            sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+            echo "repo_name=$(echo ${{ env.GITHUB_REPOSITORY }} | cut -f2 -d\/ )" >> $GITHUB_ENV
+            echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ env.repo_name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
+            for app in ${{ env.app_list }}; do
+              argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }}
+            done
+#        with:
+#          version: 2.11.7
+#          command: --grpc-web app set infra--video-${{ matrix.target }}--thq -p image.tag=${{ needs.build.outputs.sha_short }}
