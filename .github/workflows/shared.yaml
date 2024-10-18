@@ -79,10 +79,11 @@ jobs:
           sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
           
           argocd app list --grpc-web
-          argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'
+          argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'
  
-          echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
-          for app in ${{ env.app_list }}; do
-            echo "DEBUG argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }}";
+          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
             argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }};
           done
+
+# echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
+#               echo "DEBUG argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }}";
