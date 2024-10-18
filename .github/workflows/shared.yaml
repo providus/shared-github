@@ -79,7 +79,7 @@ jobs:
           sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
           
           argocd app list --grpc-web
-          argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}|awk '{print $1}'
+          argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'
  
           echo "repo_name=$(echo ${{ inputs.repo-name }} | cut -f2 -d\/ )" >> $GITHUB_ENV
           echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
