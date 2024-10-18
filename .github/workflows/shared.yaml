@@ -70,14 +70,13 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
         run: |
-          run: |
-            curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-            sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-            echo "repo_name=$(echo ${{ env.GITHUB_REPOSITORY }} | cut -f2 -d\/ )" >> $GITHUB_ENV
-            echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ env.repo_name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
-            for app in ${{ env.app_list }}; do
-              argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }}
-            done
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          echo "repo_name=$(echo ${{ env.GITHUB_REPOSITORY }} | cut -f2 -d\/ )" >> $GITHUB_ENV
+          echo "app_list=$(argocd app list --grpc-web  | cut -f1 -d\ | grep "^argocd/${{ inputs.tenant }}--${{ env.repo_name }}" | cut -f2 -d\/)" >> $GITHUB_ENV
+          for app in ${{ env.app_list }}; do
+            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }}
+          done
 #        with:
 #          version: 2.11.7
 #          command: --grpc-web app set infra--video-${{ matrix.target }}--thq -p image.tag=${{ needs.build.outputs.sha_short }}
