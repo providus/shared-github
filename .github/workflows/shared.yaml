@@ -29,6 +29,9 @@ on:
         required: true
         type: string
         description: "Tenant name"
+      repo-name:
+        required: true
+        type: string
     secrets:
       cr-pass:
         required: true
