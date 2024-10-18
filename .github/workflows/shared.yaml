@@ -79,8 +79,8 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
         run: |
-          curl -sSLO https://github.com/argoproj/argo-cd/releases/v${{ inputs.argocd-version }}/download/argocd-linux-amd64
-          sudo install -m 555 argocd-linux* /usr/local/bin/argocd
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/v${{ inputs.argocd-version }}/download/argocd-linux-amd64
+          sudo install -m 555 argocd /usr/local/bin/argocd
           
           for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
             argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }};
