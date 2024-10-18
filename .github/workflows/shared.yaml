@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy ${{ matrix.target }}
+        shell: bash
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
