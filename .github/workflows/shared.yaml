@@ -1,23 +1,40 @@
-name: Reusable workflow
+name: Build & Deploy
 
 on:
   workflow_call:
     inputs:
+      cr-host:
+        required: false
+        type: string
+        default: "docker.io"
+        description: "Container registry hostname"
       cr-login:
         required: true
         type: string
+        description: "Username for container registry"
       build-context:
         required: false
         type: string
         default: "."
-      image-name:
+        description: "Build context for docker build"
+      build-name:
         required: true
         type: string
+        description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
+      argocd-host:
+        required: true
+        type: string
+        description: "ArgoCD hostname"
     secrets:
       cr-pass:
         required: true
+        description: "Password for container registry"
+      argocd-token:
+        required: true
+        description: "Authentication to ArgoCD"
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     outputs:
@@ -28,6 +45,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
+          registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
       - name: Set outputs
@@ -35,6 +53,22 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - uses: docker/build-push-action@v6
         with:
-          context: ${{ inputs.build-context }}
+          context: ${{ inputs.build-name }}
           push: true
           tags: ${{ inputs.image-name }}:${{ env.sha_short }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.build.outputs.matrix_targets) }}
+    steps:
+      - name: Deploy ${{ matrix.target }}
+        uses: clowdhaus/argo-cd-action@v2.2.0
+        env:
+          ARGOCD_SERVER: ${{ inputs.argocd-host }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
+        with:
+          version: 2.11.7
+          command: --grpc-web app set infra--video-${{ matrix.target }}--thq -p image.tag=${{ needs.build.outputs.sha_short }}
