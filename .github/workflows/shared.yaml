@@ -1,0 +1,89 @@
+name: Build & Deploy
+
+on:
+  workflow_call:
+    inputs:
+      cr-host:
+        required: false
+        type: string
+        default: "docker.io"
+        description: "Container registry hostname"
+      cr-login:
+        required: true
+        type: string
+        description: "Username for container registry"
+      build-context:
+        required: false
+        type: string
+        default: "."
+        description: "Build context for docker build"
+      image-name:
+        required: true
+        type: string
+        description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
+      argocd-host:
+        required: true
+        type: string
+        description: "ArgoCD hostname"
+      argocd-version:
+        required: false
+        type: string
+        description: "ArgoCD binary version"
+        default: "2.11.7"
+      tenant:
+        required: true
+        type: string
+        description: "Tenant name"
+      repo-name:
+        required: true
+        type: string
+    secrets:
+      cr-pass:
+        required: true
+        description: "Password for container registry"
+      argocd-token:
+        required: true
+        description: "Authentication to ArgoCD"
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      sha_short: ${{ env.sha_short }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.cr-host }}
+          username: ${{ inputs.cr-login }}
+          password: ${{ secrets.cr-pass }}
+      - name: Set outputs
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.build-context }}
+          push: true
+          tags: ${{ inputs.image-name }}:${{ env.sha_short }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy ${{ matrix.target }}
+        shell: bash
+        env:
+          ARGOCD_SERVER: ${{ inputs.argocd-host }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
+        run: |
+          curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
+          sudo install -m 555 argocd* /usr/local/bin/argocd
+          
+          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          
+          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }};
+          done
