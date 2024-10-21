@@ -37,6 +37,11 @@ on:
       repo-name:
         required: true
         type: string
+      runs-on:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+        description: "On which runner it can work"
     secrets:
       cr-pass:
         required: true
@@ -48,7 +53,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     outputs:
       sha_short: ${{ env.sha_short }}
     steps:
