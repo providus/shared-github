@@ -59,6 +59,7 @@ jobs:
     outputs:
       sonar: ${{ steps.check.outputs.sonar }}
       type: ${{ steps.check.outputs.type }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: Check
@@ -69,13 +70,19 @@ jobs:
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls *.sln */*.sln 2>/dev/null | wc -w) ]; then 
-            echo "We are in DotNet!"; echo "type=dotnet"  >> $GITHUB_OUTPUT
+            echo "We are in DotNet!"; 
+            echo "type=dotnet"                    >> $GITHUB_OUTPUT
+            echo "version=$(cat .dotnet-version)" >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls package.json */package.json 2>/dev/null | wc -w) ]; then 
-            echo "We are in NodeJS"; echo "type=nodejs"   >> $GITHUB_OUTPUT
+            echo "We are in NodeJS"; 
+            echo "type=nodejs"                    >> $GITHUB_OUTPUT
+            echo "version=$(cat .nodejs-version)" >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls pom.xml */pom.xml 2>/dev/null | wc -w) ]; then 
-            echo "We are in Java"; echo "type=java"       >> $GITHUB_OUTPUT
+            echo "We are in Java"; 
+            echo "type=java"                      >> $GITHUB_OUTPUT
+            echo "version=$(cat .java-version)"   >> $GITHUB_OUTPUT
           fi
   scan:
     runs-on: ubuntu-24.04
@@ -84,6 +91,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ needs.prepare.outputs.version }}
       - name: Run sonar
         shell: bash
         run: |
