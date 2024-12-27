@@ -34,7 +34,7 @@ on:
         required: true
         type: string
         description: "Tenant name"
-      repo-name:
+      app-name:
         required: true
         type: string
       sonar-host:
@@ -101,7 +101,7 @@ jobs:
           if [ "${{ needs.prepare.outputs.type }}" = "dotnet" ]; then 
             dotnet tool install --global dotnet-sonarscanner --version 5.15.0
             dotnet sonarscanner begin \
-              /k:${{ inputs.image-name }} \
+              /k:${{ inputs.app-name }} \
               /d:sonar.host.url=${{ inputs.sonar-host }} \
               /d:sonar.login=${{ secrets.sonar-token }}
             dotnet build
@@ -141,8 +141,8 @@ jobs:
           curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
           sudo install -m 555 argocd* /usr/local/bin/argocd
           
-          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
           
-          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
             argocd --grpc-web app set ${app} -p image.tag=${{ needs.prepare.outputs.sha_short }};
           done
