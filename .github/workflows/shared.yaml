@@ -65,7 +65,7 @@ jobs:
         id: check
         shell: bash
         run: |
-          if ${{ secrets.sonar-token }}; then 
+          if [[ ${{ secrets.sonar-token }} ]]; then 
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls *.sln */*.sln 2>/dev/null | wc -w) ]; then 
