@@ -94,9 +94,7 @@ jobs:
               /d:sonar.host.url=${{ inputs.sonar-host }} \
               /d:sonar.login=${{ secrets.sonar-token }}
             dotnet build
-            dotnet sonarscanner end \
-              /d:sonar.host.url=${{ inputs.sonar-host }} \
-              /d:sonar.login=${{ secrets.sonar-token }}
+            dotnet sonarscanner end /d:sonar.login=${{ secrets.sonar-token }}
           fi
 
   build:
