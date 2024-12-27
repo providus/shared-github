@@ -60,12 +60,14 @@ jobs:
       sonar: ${{ steps.check.outputs.sonar }}
       type: ${{ steps.check.outputs.type }}
       version: ${{ steps.check.outputs.version }}
+      sha_short: ${{ steps.check.outputs.sha_short }}
     steps:
       - uses: actions/checkout@v4
       - name: Check
         id: check
         shell: bash
         run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           if [[ ${{ secrets.sonar-token }} ]]; then 
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
@@ -108,8 +110,7 @@ jobs:
 
   build:
     runs-on: ubuntu-24.04
-    outputs:
-      sha_short: ${{ env.sha_short }}
+    needs: [prepare]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -119,17 +120,16 @@ jobs:
           registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
-      - name: Set outputs
-        run: |
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.build-context }}
           push: true
-          tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ env.sha_short }}
+          build-args: |
+            DOTNET_VERSION=${{ needs.prepare.outputs.version }}
+          tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
 
   deploy:
-    needs: build
+    needs: [prepare,build]
     runs-on: ubuntu-24.04
     steps:
       - name: Deploy ${{ matrix.target }}
@@ -144,5 +144,5 @@ jobs:
           argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
           
           for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
-            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }};
+            argocd --grpc-web app set ${app} -p image.tag=${{ needs.prepare.outputs.sha_short }};
           done
