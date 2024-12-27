@@ -37,6 +37,11 @@ on:
       repo-name:
         required: true
         type: string
+      sonar-host:
+        required: false
+        type: string
+        default: "https://sonarqube.infra.providus.rs/"
+        description: "Address of sonar scannner"
     secrets:
       cr-pass:
         required: true
@@ -44,8 +49,54 @@ on:
       argocd-token:
         required: true
         description: "Authentication to ArgoCD"
+      sonar-token:
+        required: false
+        description: "Sonar Token"
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      sonar: ${{ steps.check.outputs.sonar }}
+      type: ${{ steps.check.outputs.type }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check
+        id: check
+        shell: bash
+        run: |
+          if ${{ secrets.sonar-token }}; then 
+            echo "sonar=true"   >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls *.sln */*.sln 2>/dev/null | wc -w) ]; then 
+            echo "We are in DotNet!"; echo "type=dotnet"  >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls package.json */package.json 2>/dev/null | wc -w) ]; then 
+            echo "We are in NodeJS"; echo "type=nodejs"   >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls pom.xml */pom.xml 2>/dev/null | wc -w) ]; then 
+            echo "We are in Java"; echo "type=java"       >> $GITHUB_OUTPUT
+          fi
+  scan:
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.sonar }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run sonar
+        shell: bash
+        run: |
+          if [${{ needs.prepare.outputs.type }} = "dotnet" ]; then 
+            dotnet tool install --global dotnet-sonarscanner --version 5.15.0
+            dotnet sonarscanner begin \
+              /k:${{ inputs.image-name }} \
+              /d:sonar.host.url=${{ inputs.sonar-host }} \
+              /d:sonar.login=${{ secrets.sonar-token }}
+            dotnet build
+            dotnet sonarscanner end \
+              /d:sonar.host.url=${{ inputs.sonar-host }} \
+              /d:sonar.login=${{ secrets.sonar-token }}
+          fi
 
   build:
     runs-on: ubuntu-latest
