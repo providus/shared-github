@@ -57,6 +57,7 @@ jobs:
   prepare:
     runs-on: ubuntu-24.04
     outputs:
+      repo_name: ${{ steps.check.outputs.repo_name
       sonar: ${{ steps.check.outputs.sonar }}
       type: ${{ steps.check.outputs.type }}
       version: ${{ steps.check.outputs.version }}
@@ -67,7 +68,8 @@ jobs:
         id: check
         shell: bash
         run: |
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
+          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
           if [[ ${{ secrets.sonar-token }} ]]; then 
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
@@ -101,7 +103,7 @@ jobs:
           if [ "${{ needs.prepare.outputs.type }}" = "dotnet" ]; then 
             dotnet tool install --global dotnet-sonarscanner --version 5.15.0
             dotnet sonarscanner begin \
-              /k:${{ inputs.app-name }} \
+              /k:${{ needs.prepare.outputs.repo_name }} \
               /d:sonar.host.url=${{ inputs.sonar-host }} \
               /d:sonar.login=${{ secrets.sonar-token }}
             dotnet build
