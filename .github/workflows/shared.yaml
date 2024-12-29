@@ -42,6 +42,16 @@ on:
         type: string
         default: "https://sonarqube.infra.providus.rs/"
         description: "Address of sonar scannner"
+      env-name:
+        required: true
+        type: string
+        default: "dev"
+        description: "Name of the environment"
+      runner-label:
+        required: false
+        type: string
+        default: "ubuntu-24.04"
+        description: "Runner name or label where to run"
     secrets:
       cr-pass:
         required: true
@@ -55,7 +65,7 @@ on:
 
 jobs:
   prepare:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner-label }}
     outputs:
       repo_name: ${{ steps.check.outputs.repo_name
       sonar: ${{ steps.check.outputs.sonar }}
@@ -89,7 +99,7 @@ jobs:
             echo "version=$(cat .java-version)"   >> $GITHUB_OUTPUT
           fi
   scan:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar }}
     steps:
@@ -110,8 +120,9 @@ jobs:
             dotnet sonarscanner end /d:sonar.login=${{ secrets.sonar-token }}
           fi
 
+
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     steps:
       - uses: actions/checkout@v4
@@ -131,8 +142,8 @@ jobs:
           tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
 
   deploy:
+    runs-on: ${{ inputs.runner-label }}
     needs: [prepare,build]
-    runs-on: ubuntu-24.04
     steps:
       - name: Deploy ${{ matrix.target }}
         shell: bash
