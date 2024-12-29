@@ -165,7 +165,7 @@ jobs:
         with:
           image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           args: --severity-threshold=critical
-      - uses: github/codeql-action/upload-sarif@v2
+      - uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
   build:
