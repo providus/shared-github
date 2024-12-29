@@ -203,8 +203,8 @@ jobs:
           curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
           sudo install -m 555 argocd* /usr/local/bin/argocd
           
-          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
           
-          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
             argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
           done
