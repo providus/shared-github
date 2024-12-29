@@ -117,6 +117,8 @@ jobs:
     if: ${{ needs.prepare.outputs.sonar }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
