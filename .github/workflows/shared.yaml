@@ -124,8 +124,10 @@ jobs:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
       - uses: actions/cache@v4
         with:
-          path: ~/.sonar/cache
+          path: ~/.sonar/cache/
           key: ${{ needs.prepare.outputs.repo_name}}-sonarqube
+          restore-keys: |
+            ${{ needs.prepare.outputs.repo_name}}-sonarqube
       - name: Run sonar
         shell: bash
         run: |
