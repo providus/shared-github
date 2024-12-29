@@ -133,8 +133,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v2
-      - name: Build image to scan
-        uses: docker/build-push-action@v4
+      - uses: docker/build-push-action@v4
         with:
           context: ${{ inputs.build-context }}
           push: false
@@ -143,7 +142,12 @@ jobs:
           tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
+      - uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          image: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          args: --severity-threshold=critical
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
