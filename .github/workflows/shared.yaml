@@ -74,17 +74,17 @@ jobs:
   prepare:
     runs-on: ${{ inputs.runner-label }}
     outputs:
-      repo_name: ${{ steps.check.outputs.repo_name }}
-      sonar: ${{ steps.check.outputs.sonar }}
-      snyk: ${{ steps.check.outputs.snyk }}
-      type: ${{ steps.check.outputs.type }}
-      framework_version: ${{ steps.check.outputs.framework_version }}
-      sha_short: ${{ steps.check.outputs.sha_short }}
-      app_version: ${{ steps.check.outputs.version }}
+      repo_name: ${{ steps.prepare.outputs.repo_name }}
+      sonar: ${{ steps.prepare.outputs.sonar }}
+      snyk: ${{ steps.prepare.outputs.snyk }}
+      type: ${{ steps.prepare.outputs.type }}
+      framework_version: ${{ steps.prepare.outputs.framework_version }}
+      sha_short: ${{ steps.prepare.outputs.sha_short }}
+      app_version: ${{ steps.prepare.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check
-        id: check
+      - name: Prepare
+        id: prepare
         shell: bash
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
