@@ -176,7 +176,7 @@ jobs:
             ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-to: type=local
       - uses: snyk/actions/docker@master
         if: ${{ needs.prepare.outputs.snyk }}
         env:
@@ -192,7 +192,7 @@ jobs:
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-from: type=local
           cache-to: type=gha,mode=max
 
   deploy:
