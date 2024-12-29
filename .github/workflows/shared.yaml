@@ -147,35 +147,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
-  scan-snyk:
-    runs-on: ${{ inputs.runner-label }}
-    needs: [prepare]
-    if: ${{ needs.prepare.outputs.snyk }}
-    steps:
-      - name: DEBUG
-        if: ${{ inputs.debug }}
-        shell: bash
-        run: |
-          echo ${{ needs.prepare.outputs.framework_version }}
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v2
-      - uses: docker/build-push-action@v4
-        with:
-          context: ${{ inputs.build-context }}
-          push: false
-          build-args: |
-            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          outputs: type=docker
-      - uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.snyk-token }}
-        with:
-          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          args: --severity-threshold=critical
-
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
