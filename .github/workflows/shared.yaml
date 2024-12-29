@@ -46,7 +46,7 @@ on:
         required: true
         type: string
         default: "dev"
-        description: "Name of the environment"
+        description: "Environment name"
       runner-label:
         required: false
         type: string
@@ -55,13 +55,16 @@ on:
     secrets:
       cr-pass:
         required: true
-        description: "Password for container registry"
+        description: "Registry token"
       argocd-token:
         required: true
-        description: "Authentication to ArgoCD"
+        description: "ArgoCD token"
       sonar-token:
         required: false
-        description: "Sonar Token"
+        description: "Sonar token"
+      snyk-token:
+        required: false
+        description: "Snyk token"
 
 jobs:
   prepare:
@@ -69,6 +72,7 @@ jobs:
     outputs:
       repo_name: ${{ steps.check.outputs.repo_name
       sonar: ${{ steps.check.outputs.sonar }}
+      snyk: ${{ steps.check.outputs.snyk }}
       type: ${{ steps.check.outputs.type }}
       version: ${{ steps.check.outputs.version }}
       sha_short: ${{ steps.check.outputs.sha_short }}
@@ -82,6 +86,9 @@ jobs:
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
           if [[ ${{ secrets.sonar-token }} ]]; then 
             echo "sonar=true"   >> $GITHUB_OUTPUT
+          fi
+          if [[ ${{ secrets.snyk-token }} ]]; then 
+            echo "snyk=true"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls *.sln */*.sln 2>/dev/null | wc -w) ]; then 
             echo "We are in DotNet!"; 
@@ -98,7 +105,7 @@ jobs:
             echo "type=java"                      >> $GITHUB_OUTPUT
             echo "version=$(cat .java-version)"   >> $GITHUB_OUTPUT
           fi
-  scan:
+  scan-sonar:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar }}
@@ -119,7 +126,23 @@ jobs:
             dotnet build
             dotnet sonarscanner end /d:sonar.login=${{ secrets.sonar-token }}
           fi
-
+  scan-snyk:
+    runs-on: ${{ inputs.runner-label }}
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.snyk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v2
+      - name: Build image to scan
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ inputs.build-context }}
+          push: false
+          build-args: |
+            DOTNET_VERSION=${{ needs.prepare.outputs.version }}
+          tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build:
     runs-on: ${{ inputs.runner-label }}
@@ -140,6 +163,8 @@ jobs:
           build-args: |
             DOTNET_VERSION=${{ needs.prepare.outputs.version }}
           tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ${{ inputs.runner-label }}
