@@ -70,7 +70,7 @@ jobs:
   prepare:
     runs-on: ${{ inputs.runner-label }}
     outputs:
-      repo_name: ${{ steps.check.outputs.repo_name
+      repo_name: ${{ steps.check.outputs.repo_name }}
       sonar: ${{ steps.check.outputs.sonar }}
       snyk: ${{ steps.check.outputs.snyk }}
       type: ${{ steps.check.outputs.type }}
