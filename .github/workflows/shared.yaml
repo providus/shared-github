@@ -43,7 +43,7 @@ on:
         default: "https://sonarqube.infra.providus.rs/"
         description: "Address of sonar scannner"
       env-name:
-        required: true
+        required: false
         type: string
         default: "dev"
         description: "Environment name"
@@ -139,14 +139,16 @@ jobs:
           push: false
           build-args: |
             DOTNET_VERSION=${{ needs.prepare.outputs.version }}
-          tags: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          tags: ${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=docker
+
       - uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
         with:
-          image: ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
           args: --severity-threshold=critical
   build:
     runs-on: ${{ inputs.runner-label }}
