@@ -110,7 +110,7 @@ jobs:
             echo "We are in NodeJS"; 
             echo "type=nodejs"                                >> $GITHUB_OUTPUT
             echo "framework_version=$(cat .nodejs-version)"   >> $GITHUB_OUTPUT
-            echo "version=$(jq -r .version package.json)"     >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version package.json)"     >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then 
             echo "We are in Java"; 
@@ -118,7 +118,7 @@ jobs:
             echo "framework_version=$(cat .java-version)"     >> $GITHUB_OUTPUT
           fi
 
-  scan-sonar:
+  scan:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar }}
@@ -198,12 +198,29 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.build-context }}
-          push: true
+          push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
+          cache-to: type=local,dest=/tmp/.buildx-cache
+      - uses: snyk/actions/docker@master
+        if: ${{ needs.prepare.outputs.snyk }}
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          args: --severity-threshold=critical
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.build-context }}
+          push: true
+          build-args: |
+            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
+          tags: |
+            ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=gha,mode=max
 
   deploy:
