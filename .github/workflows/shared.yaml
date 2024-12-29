@@ -120,6 +120,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.sonar/
+          key: sonarqube
       - name: Run sonar
         shell: bash
         run: |
