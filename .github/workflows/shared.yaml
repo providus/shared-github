@@ -112,6 +112,7 @@ jobs:
             echo "type=java"                      >> $GITHUB_OUTPUT
             echo "framework_version=$(cat .java-version)"   >> $GITHUB_OUTPUT
           fi
+
   scan-sonar:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
@@ -123,12 +124,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - uses: actions/cache@v4
-        with:
-          path: /home/runner/.sonar/cache/
-          key: ${{ needs.prepare.outputs.repo_name}}-sonarqube
-          restore-keys: |
-            ${{ needs.prepare.outputs.repo_name}}-sonarqube
       - name: Run sonar
         shell: bash
         run: |
@@ -142,6 +137,7 @@ jobs:
             dotnet build -v:minimal
             dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           fi
+
   scan-snyk:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
@@ -159,26 +155,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
-      - uses: snyk/actions/setup@master
-      - uses: actions/setup-go@v1
-        with:
-          go-version: '1.19'
-      - name: Snyk test
-        run: |
-          pwd
-          ls -alh
-          snyk test
+      - uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
-#      - uses: snyk/actions/docker@master
-#        env:
-#          SNYK_TOKEN: ${{ secrets.snyk-token }}
-#        with:
-#          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-#          args: --severity-threshold=critical
-      - uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: snyk.sarif
+          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          args: --severity-threshold=critical
+
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
