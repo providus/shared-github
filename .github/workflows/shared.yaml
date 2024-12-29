@@ -9,8 +9,9 @@ on:
         default: "docker.io"
         description: "Container registry hostname"
       cr-login:
-        required: true
+        required: false
         type: string
+        default: "providus"
         description: "Username for container registry"
       build-context:
         required: false
