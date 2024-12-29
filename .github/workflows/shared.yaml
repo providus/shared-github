@@ -138,7 +138,7 @@ jobs:
             -d:sonar.host.url=${{ inputs.sonar-host }} \
             -d:sonar.login=${{ secrets.sonar-token }} \
             -v:${{ needs.prepare.outputs.app_version }}
-          dotnet build -v:minimal
+          dotnet build
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
       - name: Run SonarQube scan (generic)
         if: ${{ needs.prepare.outputs.sonar }}
@@ -182,6 +182,11 @@ jobs:
     outputs:
       image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
+      - name: DEBUG
+        if: ${{ inputs.debug }}
+        shell: bash
+        run: |
+          echo ${{ needs.prepare.outputs.framework_version }}
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -195,7 +200,7 @@ jobs:
           context: ${{ inputs.build-context }}
           push: true
           build-args: |
-            DOTNET_VERSION=${{ needs.prepare.outputs.framework_version }}
+            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
