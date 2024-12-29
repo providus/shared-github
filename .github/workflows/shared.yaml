@@ -120,25 +120,28 @@ jobs:
     if: ${{ needs.prepare.outputs.sonar }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run sonar
+      - name: Run SonarQube scan (dotnet)
+        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
-          if [ "${{ needs.prepare.outputs.type }}" = "dotnet" ]; then 
-            dotnet tool install --global dotnet-sonarscanner --version 5.15.0
-            dotnet sonarscanner begin \
-              -k:${{ needs.prepare.outputs.repo_name }} \
-              -d:sonar.host.url=${{ inputs.sonar-host }} \
-              -d:sonar.login=${{ secrets.sonar-token }} \
-              -v:${{ needs.prepare.outputs.app_version }}
-            dotnet build -v:minimal
-            dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
-          fi
+          dotnet tool install --global dotnet-sonarscanner --version 5.15.0
+          dotnet sonarscanner begin \
+            -k:${{ needs.prepare.outputs.repo_name }} \
+            -d:sonar.host.url=${{ inputs.sonar-host }} \
+            -d:sonar.login=${{ secrets.sonar-token }} \
+            -v:${{ needs.prepare.outputs.app_version }}
+          dotnet build -v:minimal
+          dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
+      - name: Run SonarQube scan (generic)
+        if: ${{ needs.prepare.outputs.sonar }}
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+          SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
   scan-snyk:
     runs-on: ${{ inputs.runner-label }}
