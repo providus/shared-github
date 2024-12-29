@@ -155,7 +155,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
         with:
-          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.sha_short }}
+          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           args: --severity-threshold=critical
   build:
     runs-on: ${{ inputs.runner-label }}
