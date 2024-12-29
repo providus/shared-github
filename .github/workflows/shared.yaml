@@ -130,12 +130,12 @@ jobs:
           if [ "${{ needs.prepare.outputs.type }}" = "dotnet" ]; then 
             dotnet tool install --global dotnet-sonarscanner --version 5.15.0
             dotnet sonarscanner begin \
-              /k:${{ needs.prepare.outputs.repo_name }} \
-              /d:sonar.host.url=${{ inputs.sonar-host }} \
-              /d:sonar.login=${{ secrets.sonar-token }} \
-              /v:${{ needs.prepare.outputs.app_version }}
-            dotnet build
-            dotnet sonarscanner end /d:sonar.login=${{ secrets.sonar-token }}
+              -k:${{ needs.prepare.outputs.repo_name }} \
+              -d:sonar.host.url=${{ inputs.sonar-host }} \
+              -d:sonar.login=${{ secrets.sonar-token }} \
+              -v:${{ needs.prepare.outputs.app_version }} 
+            dotnet build -v:minimal
+            dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           fi
   scan-snyk:
     runs-on: ${{ inputs.runner-label }}
