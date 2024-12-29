@@ -159,13 +159,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
-
       - uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
         with:
           image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           args: --severity-threshold=critical
+      - uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk.sarif
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
