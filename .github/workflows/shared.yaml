@@ -9,8 +9,9 @@ on:
         default: "docker.io"
         description: "Container registry hostname"
       cr-login:
-        required: true
+        required: false
         type: string
+        default: "providus"
         description: "Username for container registry"
       build-context:
         required: false
@@ -34,24 +35,129 @@ on:
         required: true
         type: string
         description: "Tenant name"
-      repo-name:
+      app-name:
         required: true
         type: string
+      sonar-host:
+        required: false
+        type: string
+        default: "https://sonarqube.infra.providus.rs/"
+        description: "Address of sonar scannner"
+      env-name:
+        required: false
+        type: string
+        default: "dev"
+        description: "Environment name"
+      runner-label:
+        required: false
+        type: string
+        default: "ubuntu-24.04"
+        description: "Runner name or label where to run"
+      debug:
+        required: false
+        type: boolean
+        default: false
     secrets:
       cr-pass:
         required: true
-        description: "Password for container registry"
+        description: "Registry token"
       argocd-token:
         required: true
-        description: "Authentication to ArgoCD"
+        description: "ArgoCD token"
+      sonar-token:
+        required: false
+        description: "Sonar token"
+      snyk-token:
+        required: false
+        description: "Snyk token"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
+  prepare:
+    runs-on: ${{ inputs.runner-label }}
+    outputs:
+      repo_name: ${{ steps.prepare.outputs.repo_name }}
+      sonar: ${{ steps.prepare.outputs.sonar }}
+      snyk: ${{ steps.prepare.outputs.snyk }}
+      type: ${{ steps.prepare.outputs.type }}
+      framework_version: ${{ steps.prepare.outputs.framework_version }}
+      sha_short: ${{ steps.prepare.outputs.sha_short }}
+      app_version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare
+        id: prepare
+        shell: bash
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
+          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
+          if [[ ${{ secrets.sonar-token }} ]]; then
+            echo "sonar=true"   >> $GITHUB_OUTPUT
+          fi
+          if [[ ${{ secrets.snyk-token }} ]]; then
+            echo "snyk=true"   >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls ${{ inputs.build-context }}/*.sln 2>/dev/null | wc -w) ]; then
+            echo "We are in DotNet!"; 
+            echo "type=dotnet"                                >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat .dotnet-version)"   >> $GITHUB_OUTPUT
+            echo "version=$(cat .version)"                    >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
+            echo "We are in NodeJS"; 
+            echo "type=nodejs"                                        >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat .nodejs-version)"           >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version package.json)"   >> $GITHUB_OUTPUT
+          fi
+          if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then
+            echo "We are in Java"; 
+            echo "type=java"                                  >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat .java-version)"     >> $GITHUB_OUTPUT
+          fi
+
+  scan:
+    runs-on: ${{ inputs.runner-label }}
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.sonar }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+        with:
+          dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+      - name: Run SonarQube scan (dotnet)
+        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+        shell: bash
+        run: |
+          dotnet tool install --global dotnet-sonarscanner --version 5.15.0
+          dotnet sonarscanner begin \
+            -k:${{ needs.prepare.outputs.repo_name }} \
+            -d:sonar.host.url=${{ inputs.sonar-host }} \
+            -d:sonar.login=${{ secrets.sonar-token }} \
+            -v:${{ needs.prepare.outputs.app_version }}
+          dotnet build
+          dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
+      - name: Run SonarQube scan (generic)
+        if: ${{ needs.prepare.outputs.type != 'dotnet' }}
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+          SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner-label }}
+    needs: [prepare]
     outputs:
-      sha_short: ${{ env.sha_short }}
+      image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
+      - name: DEBUG
+        if: ${{ inputs.debug }}
+        shell: bash
+        run: |
+          echo ${{ needs.prepare.outputs.framework_version }}
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -60,18 +166,37 @@ jobs:
           registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
-      - name: Set outputs
-        run: |
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.build-context }}
+          push: false
+          build-args: |
+            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
+          tags: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker
+      - uses: snyk/actions/docker@master
+        if: ${{ needs.prepare.outputs.snyk }}
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          args: --severity-threshold=critical
       - uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.build-context }}
           push: true
-          tags: ${{ inputs.image-name }}:${{ env.sha_short }}
+          build-args: |
+            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
+          tags: |
+            ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner-label }}
+    needs: [prepare,build]
     steps:
       - name: Deploy ${{ matrix.target }}
         shell: bash
@@ -82,8 +207,8 @@ jobs:
           curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
           sudo install -m 555 argocd* /usr/local/bin/argocd
           
-          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
           
-          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.repo-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
-            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.sha_short }};
+          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
           done
