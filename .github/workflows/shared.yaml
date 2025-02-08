@@ -112,7 +112,7 @@ jobs:
             echo "We are in NodeJS"; 
             echo "type=nodejs"                                        >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
-            echo "version=$(jq --raw-output ${{ inputs.build-context }}/.version package.json)"   >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then
             echo "We are in Java"; 
