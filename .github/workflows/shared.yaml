@@ -43,6 +43,11 @@ on:
         type: string
         default: "https://sonarqube.infra.providus.rs/"
         description: "Address of sonar scannner"
+      sonar-scanner-version:
+        required: false
+        type: string
+        description: "Version of sonar scanner"
+        default: "6.2.1.4610"
       env-name:
         required: false
         type: string
@@ -92,31 +97,34 @@ jobs:
         id: prepare
         shell: bash
         run: |
+          SONAR_TOKEN="${{ secrets.sonar-token }}"
+          SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
-          if [[ ${{ secrets.sonar-token }} ]]; then
+          if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
-          if [[ ${{ secrets.snyk-token }} ]]; then
+          if [[ -n "$SNYK_TOKEN" ]]; then
             echo "snyk=true"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/*.sln 2>/dev/null | wc -w) ]; then
             echo "We are in DotNet!"; 
             echo "type=dotnet"                                >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat .dotnet-version)"   >> $GITHUB_OUTPUT
-            echo "version=$(cat .version)"                    >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.dotnet-version)"   >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
             echo "We are in NodeJS"; 
             echo "type=nodejs"                                        >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat .nodejs-version)"           >> $GITHUB_OUTPUT
-            echo "version=$(jq --raw-output .version package.json)"   >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then
             echo "We are in Java"; 
             echo "type=java"                                  >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat .java-version)"     >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"     >> $GITHUB_OUTPUT
           fi
+
 
   scan:
     runs-on: ${{ inputs.runner-label }}
@@ -132,6 +140,7 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
+          cd ${{ inputs.build-context }}
           dotnet tool install --global dotnet-sonarscanner --version 5.15.0
           dotnet sonarscanner begin \
             -k:${{ needs.prepare.outputs.repo_name }} \
@@ -143,6 +152,9 @@ jobs:
       - name: Run SonarQube scan (generic)
         if: ${{ needs.prepare.outputs.type != 'dotnet' }}
         uses: sonarsource/sonarqube-scan-action@v4
+        with:
+          projectBaseDir: ${{ inputs.build-context }}
+          scannerVersion: ${{ inputs.sonar-scanner-version }}
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
