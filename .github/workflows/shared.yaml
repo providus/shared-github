@@ -92,12 +92,14 @@ jobs:
         id: prepare
         shell: bash
         run: |
+          SONAR_TOKEN="${{ secrets.sonar-token }}"
+          SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
-          if [[ ${{ secrets.sonar-token }} ]]; then
+          if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
-          if [[ ${{ secrets.snyk-token }} ]]; then
+          if [[ -n "$SNYK_TOKEN" ]]; then
             echo "snyk=true"   >> $GITHUB_OUTPUT
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/*.sln 2>/dev/null | wc -w) ]; then
