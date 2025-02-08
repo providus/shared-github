@@ -43,6 +43,11 @@ on:
         type: string
         default: "https://sonarqube.infra.providus.rs/"
         description: "Address of sonar scannner"
+      sonar-scanner-version:
+        required: false
+        type: string
+        description: "Version of sonar scanner"
+        default: "6.2.1.4610"
       env-name:
         required: false
         type: string
@@ -120,6 +125,7 @@ jobs:
             echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"     >> $GITHUB_OUTPUT
           fi
 
+
   scan:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
@@ -146,6 +152,9 @@ jobs:
       - name: Run SonarQube scan (generic)
         if: ${{ needs.prepare.outputs.type != 'dotnet' }}
         uses: sonarsource/sonarqube-scan-action@v4
+        with:
+          projectBaseDir: ${{ inputs.build-context }}
+          scannerVersion: ${{ inputs.sonar-scanner-version }}
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
