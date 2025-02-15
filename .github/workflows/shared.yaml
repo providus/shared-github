@@ -136,6 +136,11 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+      - name: Run Snyk to check for vulnerabilities
+        if: ${{ needs.prepare.outputs.type == 'nodejs' && needs.prepare.outputs.snyk }}
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
       - name: Run SonarQube scan (dotnet)
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
