@@ -62,6 +62,11 @@ on:
         required: false
         type: boolean
         default: false
+      snyk-severity:
+        required: false
+        type: string
+        default: "critical"
+        description: "Severity level of Snyk scanner https://docs.snyk.io/manage-risk/prioritize-issues-for-fixing/severity-levels"
     secrets:
       cr-pass:
         required: true
@@ -115,7 +120,7 @@ jobs:
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
             echo "We are in NodeJS"; 
-            echo "type=nodejs"                                        >> $GITHUB_OUTPUT
+            echo "type=node"                                        >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
           fi
@@ -136,11 +141,13 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run Snyk to check for vulnerabilities
-        if: ${{ needs.prepare.outputs.type == 'nodejs' && needs.prepare.outputs.snyk }}
-        uses: snyk/actions/node@master
+      - name: Run Snyk to check for vulnerabilities (${{ needs.prepare.outputs.type }})
+        if: ${{ needs.prepare.outputs.snyk }}
+        uses: snyk/actions/${{ needs.prepare.outputs.type }}@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          args: --severity-threshold=${{ inputs.snyk-severity }}
       - name: Run SonarQube scan (dotnet)
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
