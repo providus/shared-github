@@ -120,7 +120,7 @@ jobs:
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
             echo "We are in NodeJS"; 
-            echo "type=node"                                        >> $GITHUB_OUTPUT
+            echo "type=nodejs"                                        >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
           fi
@@ -141,9 +141,16 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run Snyk to check for vulnerabilities (${{ needs.prepare.outputs.type }})
-        if: ${{ needs.prepare.outputs.snyk }}
-        uses: snyk/actions/${{ needs.prepare.outputs.type }}@master
+      - name: Run Snyk to check for vulnerabilities (NodeJS)
+        if: ${{ needs.prepare.outputs.type == "nodejs" && needs.prepare.outputs.snyk }}
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          args: --severity-threshold=${{ inputs.snyk-severity }}
+      - name: Run Snyk to check for vulnerabilities (DotNet)
+        if: ${{ needs.prepare.outputs.type == "dotnet" && needs.prepare.outputs.snyk }}
+        uses: snyk/actions/dotnet@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
         with:
