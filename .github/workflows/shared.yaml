@@ -142,14 +142,14 @@ jobs:
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
       - name: Run Snyk to check for vulnerabilities (NodeJS)
-        if: ${{ needs.prepare.outputs.type == "nodejs" && needs.prepare.outputs.snyk }}
+        if: ${{ needs.prepare.outputs.type == 'nodejs' && needs.prepare.outputs.snyk }}
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
         with:
           args: --severity-threshold=${{ inputs.snyk-severity }}
       - name: Run Snyk to check for vulnerabilities (DotNet)
-        if: ${{ needs.prepare.outputs.type == "dotnet" && needs.prepare.outputs.snyk }}
+        if: ${{ needs.prepare.outputs.type == 'dotnet' && needs.prepare.outputs.snyk }}
         uses: snyk/actions/dotnet@master
         env:
           SNYK_TOKEN: ${{ secrets.snyk-token }}
