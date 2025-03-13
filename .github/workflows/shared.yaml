@@ -126,7 +126,7 @@ jobs:
           fi
           if [ 0 -lt $(ls ${{ inputs.build-context }}/requirements.txt 2>/dev/null | wc -w) ]; then
             echo "We are in Python (PyTorch)";
-            echo "type=pytorch" >> $GITHUB_OUTPUT
+            echo "type=python" >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
           fi
 
