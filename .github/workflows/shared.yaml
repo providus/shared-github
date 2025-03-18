@@ -208,8 +208,8 @@ jobs:
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          cache-from: ""
-          cache-to: ""
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ${{ inputs.runner-label }}
