@@ -1,0 +1,64 @@
+name: Build and Deploy with Terraform (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      ecr_repo:
+        required: true
+        type: string
+      tf_dir:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ inputs.aws_region }}
+      ECR_REPO: ${{ inputs.ecr_repo }}
+      TF_DIR: ${{ inputs.tf_dir }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and Push Docker Image
+        run: |
+          cd src/frontend
+          IMAGE_URI="473980291536.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}"
+          docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA} .
+          docker push $IMAGE_URI:latest
+          docker push $IMAGE_URI:${GITHUB_SHA}
+          echo "IMAGE_URI=$IMAGE_URI:${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Replace image URI in task-definition.json
+        run: |
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/task-definition.json > tmp.json
+          mv tmp.json ${{ env.TF_DIR }}/task-definition.json
+
+      - name: Commit and push updated task-definition.json
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add ${{ env.TF_DIR }}/task-definition.json
+          git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
+          git push
