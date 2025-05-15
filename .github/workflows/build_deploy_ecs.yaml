@@ -60,7 +60,7 @@ jobs:
 
       - name: Replace image URI in task definition
         run: |
-          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ inputs.task_definition_path }} > tmp.json
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} > tmp.json
           mv tmp.json ${{ inputs.task_definition_path }}
 
       - name: Commit and push updated task-definition.json
