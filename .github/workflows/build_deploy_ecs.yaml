@@ -12,6 +12,9 @@ on:
       tf_dir:
         required: true
         type: string
+      task_definition_path:
+        required: true
+        type: string
     secrets:
       AWS_ACCESS_KEY:
         required: true
@@ -55,10 +58,10 @@ jobs:
           docker push $IMAGE_URI:${GITHUB_SHA}
           echo "IMAGE_URI=$IMAGE_URI:${GITHUB_SHA}" >> $GITHUB_ENV
 
-      - name: Replace image URI in task-definition.json
+      - name: Replace image URI in task definition
         run: |
-          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/task-definition.json > tmp.json
-          mv tmp.json ${{ env.TF_DIR }}/task-definition.json
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ inputs.task_definition_path }} > tmp.json
+          mv tmp.json ${{ inputs.task_definition_path }}
 
       - name: Commit and push updated task-definition.json
         run: |
