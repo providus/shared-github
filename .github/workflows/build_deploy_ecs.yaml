@@ -57,8 +57,6 @@ jobs:
           docker push $IMAGE_URI:latest
           docker push $IMAGE_URI:${GITHUB_SHA}
           echo "IMAGE_URI=$IMAGE_URI:${GITHUB_SHA}" >> $GITHUB_ENV
-          echo "🔹 Docker image URI: $IMAGE_URI:${GITHUB_SHA}"
-          echo "🔹 Git Commit SHA: $GITHUB_SHA"
           # Add summary output
           echo "### ✅ Docker image built and pushed" >> $GITHUB_STEP_SUMMARY
           echo "- **Image URI:** \`$IMAGE_URI:${GITHUB_SHA}\`" >> $GITHUB_STEP_SUMMARY
@@ -72,6 +70,8 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+          echo "### 📝 Changes in task-definition.json" >> $GITHUB_STEP_SUMMARY
+          git diff ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} >> $GITHUB_STEP_SUMMARY || echo "No diff"
           git add ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
           git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
           git push
