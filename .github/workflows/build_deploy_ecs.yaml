@@ -1,4 +1,4 @@
-name: Build and Deploy with Terraform (Reusable)
+name: Build and Deploy on AWS ECS (Reusable)
 
 on:
   workflow_call:
@@ -61,7 +61,7 @@ jobs:
       - name: Replace image URI in task definition
         run: |
           jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} > tmp.json
-          mv tmp.json ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
+          mv tmp.json ${{ env.TF_DIR }}${{ inputs.task_definition_path }}
 
       - name: Commit and push updated task-definition.json
         run: |
