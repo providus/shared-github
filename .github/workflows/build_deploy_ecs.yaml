@@ -69,10 +69,11 @@ jobs:
           mv tmp.json ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
           echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
           echo "**Old image:** \`$OLD_IMAGE\`" >> $GITHUB_STEP_SUMMARY
-          echo "**New image:** \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
+          echo "**New image:** \`$IMAGE_URI\`" >> $GITHUB_STEP_SUMMARY
 
 
       - name: Commit and push updated task-definition.json
+        id: commit-push
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
@@ -81,6 +82,16 @@ jobs:
           git add ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
           git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
           git push
+  
+      - name: Show image change diff in summary
+        if: steps.commit-push.outcome == 'success'
+        run: |
+          echo "## Image update in ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
+          git diff HEAD~1 HEAD -- ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} | grep '"image"' >> $GITHUB_STEP_SUMMARY || echo "No image change detected"
 
-
+      - name: Add link to deploy_infra.yaml workflow 
+        if: steps.commit-push.outcome == 'success'
+        run: |
+          echo "### Next step" >> $GITHUB_STEP_SUMMARY
+          echo "Check the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
 
