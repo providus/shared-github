@@ -65,17 +65,7 @@ jobs:
         run: |
           jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} > tmp.json
           mv tmp.json ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
-
-      - name: Commit and push updated task-definition.json
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          # echo "### 📝 Changes in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
-          # git diff ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} >> $GITHUB_STEP_SUMMARY || echo "No diff"
-          # git add ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
-          git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
-          git push
-
+          
       - name: Show image change in summary
         run: |
           OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }})
@@ -84,4 +74,20 @@ jobs:
           echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
           echo "**Old image:** \`$OLD_IMAGE\`" >> $GITHUB_STEP_SUMMARY
           echo "**New image:** \`$NEW_IMAGE\`" >> $GITHUB_STEP_SUMMARY
+      - name: Commit and push updated task-definition.json
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          # echo "### 📝 Changes in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
+          # git diff ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} >> $GITHUB_STEP_SUMMARY || echo "No diff"
+          # git add ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
+          git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
+          COMMIT_HASH=$(git rev-parse HEAD)
+          echo "### ✅ New commit: \`$COMMIT_HASH\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`diff" >> $GITHUB_STEP_SUMMARY
+          git show --no-color --stat $COMMIT_HASH >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          git push
+
+
 
