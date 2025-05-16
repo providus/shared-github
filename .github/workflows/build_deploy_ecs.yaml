@@ -81,7 +81,7 @@ jobs:
           OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }})
           NEW_IMAGE="${IMAGE_URI}"
 
-          echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}"" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
           echo "**Old image:** \`$OLD_IMAGE\`" >> $GITHUB_STEP_SUMMARY
           echo "**New image:** \`$NEW_IMAGE\`" >> $GITHUB_STEP_SUMMARY
 
