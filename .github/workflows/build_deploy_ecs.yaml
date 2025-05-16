@@ -57,11 +57,13 @@ jobs:
           docker push $IMAGE_URI:latest
           docker push $IMAGE_URI:${GITHUB_SHA}
           echo "IMAGE_URI=$IMAGE_URI:${GITHUB_SHA}" >> $GITHUB_ENV
-
+          echo "🔹 Docker image URI: $IMAGE_URI:${GITHUB_SHA}"
+          echo "🔹 Git Commit SHA: $GITHUB_SHA"
+          
       - name: Replace image URI in task definition
         run: |
           jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} > tmp.json
-          mv tmp.json ${{ env.TF_DIR }}${{ inputs.task_definition_path }}
+          mv tmp.json ${{ inputs.task_definition_path }}
 
       - name: Commit and push updated task-definition.json
         run: |
