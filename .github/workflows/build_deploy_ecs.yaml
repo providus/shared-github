@@ -15,6 +15,9 @@ on:
       task_definition_path:
         required: true
         type: string
+      dockerfile_path:
+        required: true
+        type: string
     secrets:
       AWS_ACCESS_KEY:
         required: true
@@ -29,6 +32,8 @@ jobs:
       AWS_REGION: ${{ inputs.aws_region }}
       ECR_REPO: ${{ inputs.ecr_repo }}
       TF_DIR: ${{ inputs.tf_dir }}
+      DOCKERFILE_PATH: ${{ inputs.dockerfile_path }}
+      TASK_DEFINITION_PATH: ${{ inputs.task_definition_path }}
 
     steps:
       - name: Checkout code
@@ -51,7 +56,7 @@ jobs:
           
       - name: Build and Push Docker Image
         run: |
-          cd src/frontend
+          cd ${{ env.DOCKERFILE_PATH }}
           IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}"
           docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA} .
           docker push $IMAGE_URI:latest
@@ -64,9 +69,9 @@ jobs:
           
       - name: Replace image URI in task definition
         run: |
-          OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }})
-          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} > tmp.json
-          mv tmp.json ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
+          OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }})
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }} > tmp.json
+          mv tmp.json ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}
           echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
           echo "**Old image:** \`$OLD_IMAGE\`" >> $GITHUB_STEP_SUMMARY
           echo "**New image:** \`$IMAGE_URI\`" >> $GITHUB_STEP_SUMMARY
@@ -77,15 +82,15 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git add ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}
+          git add ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}
           git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
           git push
   
       - name: Show image change diff in summary
         if: steps.commit-push.outcome == 'success'
         run: |
-          echo "## Image update in ${{ env.TF_DIR }}/${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
-          git diff HEAD~1 HEAD -- ${{ env.TF_DIR }}/${{ inputs.task_definition_path }} | grep '"image"' >> $GITHUB_STEP_SUMMARY || echo "No image change detected"
+          echo "## Image update in ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}" >> $GITHUB_STEP_SUMMARY
+          git diff HEAD~1 HEAD -- ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }} | grep '"image"' >> $GITHUB_STEP_SUMMARY || echo "No image change detected"
 
       - name: Add link to deploy_infra.yaml workflow 
         if: steps.commit-push.outcome == 'success'
