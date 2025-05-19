@@ -12,6 +12,9 @@ on:
       tf_dir:
         required: true
         type: string
+      apps_path:
+        required: true
+        type: string
     secrets:
       AWS_ACCESS_KEY:
         required: true
@@ -26,6 +29,7 @@ jobs:
       AWS_REGION: ${{ inputs.aws_region }}
       ECR_REPO: ${{ inputs.ecr_repo }}
       TF_DIR: ${{ inputs.tf_dir }}
+      APPS_PATH: ${{ inputs.apps_path }}
 
     steps:
       - name: Checkout code
@@ -52,7 +56,7 @@ jobs:
       - name: Detect Changed Apps
         id: detect
         run: |
-          CHANGED_APPS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^src/apps/' | cut -d'/' -f3 | sort -u)
+          CHANGED_APPS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^$APPS_PATH' | cut -d'/' -f3 | sort -u)
           echo "Detected apps: $CHANGED_APPS"
           echo "apps<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED_APPS" >> $GITHUB_OUTPUT
@@ -73,10 +77,11 @@ jobs:
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
 
             echo "Building and pushing image for $APP..."
-            docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA}-$APP src/apps/$APP
+            docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA}-$APP $APPS_PATH/$APP
             docker push $IMAGE_URI:latest
             docker push $IMAGE_URI:${GITHUB_SHA}-$APP
-
+            pwd
+            ls -lha
             echo "Updating task definition for $APP..."
             TASK_DEF_FILE="$TF_DIR/environments/dev/${APP}-task-definition.json"
             OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' "$TASK_DEF_FILE")
