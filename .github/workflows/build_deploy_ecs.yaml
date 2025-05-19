@@ -60,7 +60,7 @@ jobs:
       - name: Detect Changed Apps
         id: detect
         run: |
-          CHANGED_APPS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^${APPS_PATH' | cut -d'/' -f3 | sort -u)
+          CHANGED_APPS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^${APPS_PATH}' | cut -d'/' -f3 | sort -u)
           echo "Detected apps: $CHANGED_APPS"
           echo "apps<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED_APPS" >> $GITHUB_OUTPUT
