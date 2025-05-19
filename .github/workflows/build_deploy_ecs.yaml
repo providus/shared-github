@@ -65,6 +65,9 @@ jobs:
 
           echo "Parsing and processing apps..."
 
+          SUMMARY_FILE=summary.log
+          : > $SUMMARY_FILE
+
           while IFS= read -r APP; do
             echo "\n🔧 Processing $APP"
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
@@ -77,24 +80,32 @@ jobs:
             echo "Updating task definition for $APP..."
             TASK_DEF_FILE="$TF_DIR/environments/dev/${APP}-task-definition.json"
             OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' "$TASK_DEF_FILE")
-            jq --arg IMAGE "$IMAGE_URI:${GITHUB_SHA}-$APP" '.containerDefinitions[0].image = $IMAGE' "$TASK_DEF_FILE" > tmp.json && mv tmp.json "$TASK_DEF_FILE"
+            NEW_IMAGE="$IMAGE_URI:${GITHUB_SHA}-$APP"
+            jq --arg IMAGE "$NEW_IMAGE" '.containerDefinitions[0].image = $IMAGE' "$TASK_DEF_FILE" > tmp.json && mv tmp.json "$TASK_DEF_FILE"
 
             git config --global user.name "GitHub Actions"
             git config --global user.email "actions@github.com"
             git add "$TASK_DEF_FILE"
             git commit -m "Update $APP task definition to $GITHUB_SHA-$APP" || echo "No changes to commit"
+
+            echo "- **$APP**" >> $SUMMARY_FILE
+            echo "  - 📄 Task definition: \`$TASK_DEF_FILE\`" >> $SUMMARY_FILE
+            echo "  - 🕰 Old image: \`$OLD_IMAGE\`" >> $SUMMARY_FILE
+            echo "  - 🚀 New image: \`$NEW_IMAGE\`" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
           done <<< "${{ steps.detect.outputs.apps }}"
 
-          git push
 
       - name: Summary
         run: |
           echo "### ✅ All detected apps built and deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          IFS=$'\n' read -r -a apps <<< "${{ steps.detect.outputs.apps }}"
-          for APP in "${apps[@]}"; do
-            echo "- $APP" >> $GITHUB_STEP_SUMMARY
-          done
+          if [[ -f summary.log ]]; then
+            cat summary.log >> $GITHUB_STEP_SUMMARY
+          else
+            echo "_No apps changed or summary not generated._" >> $GITHUB_STEP_SUMMARY
+          fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 Check the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
