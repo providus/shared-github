@@ -1,4 +1,4 @@
-name: Build and Deploy on AWS ECS (Reusable - Multi App)
+onname: Build and Deploy on AWS ECS (Reusable - Multi App)
 
 on:
   workflow_call:
@@ -70,7 +70,7 @@ jobs:
             docker push $IMAGE_URI:${GITHUB_SHA}-$APP
 
             echo "Updating task definition for $APP..."
-            TASK_DEF_FILE="$TF_DIR/${APP}-task-definition.json"
+            TASK_DEF_FILE="$TF_DIR/environments/dev/${APP}-task-definition.json"
             OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' "$TASK_DEF_FILE")
             jq --arg IMAGE "$IMAGE_URI:${GITHUB_SHA}-$APP" '.containerDefinitions[0].image = $IMAGE' "$TASK_DEF_FILE" > tmp.json && mv tmp.json "$TASK_DEF_FILE"
 
