@@ -60,7 +60,7 @@ jobs:
 
       - name: Build, Push, and Update Task Definitions
         run: |
-          IFS=$'\n' read -r -d '' -a apps <<< "${{ steps.detect.outputs.apps }}"
+          IFS=$'\n' read -r -a apps <<< "${{ steps.detect.outputs.apps }}"
           for APP in "${apps[@]}"; do
             echo "\n🔧 Processing $APP"
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
