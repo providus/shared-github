@@ -1,4 +1,4 @@
-onname: Build and Deploy on AWS ECS (Reusable - Multi App)
+name: Build and Deploy on AWS ECS (Reusable - Multi App)
 
 on:
   workflow_call:
