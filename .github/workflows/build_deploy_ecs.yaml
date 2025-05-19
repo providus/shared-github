@@ -75,17 +75,26 @@ jobs:
 
           SUMMARY_FILE=summary.log
           : > $SUMMARY_FILE
+          SUCCESS_APPS=()
+          FAILED_APPS=()
 
+          set +e
           while IFS= read -r APP; do
             echo "\n🔧 Processing $APP"
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
 
             echo "Building and pushing image for $APP..."
             docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA}-$APP ${{ env.APPS_PATH }}/$APP
+            if [[ $? -ne 0 ]]; then
+              echo "❌ Build failed for $APP"
+              FAILED_APPS+=("$APP")
+              echo "- **$APP** ❌ Build failed" >> $SUMMARY_FILE
+              continue
+            fi
+
             docker push $IMAGE_URI:latest
             docker push $IMAGE_URI:${GITHUB_SHA}-$APP
-            pwd
-            ls -lha
+
             echo "Updating task definition for $APP..."
             TASK_DEF_FILE="${{ env.TASK_DEFINITION_PATH }}/${APP}-task-definition.json"
             OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' "$TASK_DEF_FILE")
@@ -97,24 +106,49 @@ jobs:
             git add "$TASK_DEF_FILE"
             git commit -m "Update $APP task definition to $GITHUB_SHA-$APP" || echo "No changes to commit"
 
-            echo "- **$APP**" >> $SUMMARY_FILE
+            echo "- **$APP** ✅ Build and task definition updated" >> $SUMMARY_FILE
             echo "  - 📄 Task definition: \`$TASK_DEF_FILE\`" >> $SUMMARY_FILE
             echo "  - 🕰 Old image: \`$OLD_IMAGE\`" >> $SUMMARY_FILE
             echo "  - 🚀 New image: \`$NEW_IMAGE\`" >> $SUMMARY_FILE
             echo "" >> $SUMMARY_FILE
-          done <<< "${{ steps.detect.outputs.apps }}"
-          
-          git push
 
+            SUCCESS_APPS+=("$APP")
+          done <<< "${{ steps.detect.outputs.apps }}"
+
+          git push || echo "No changes to push"
+          
+          echo "SUCCESS_APPS=${SUCCESS_APPS[@]}" >> $GITHUB_ENV
+          echo "FAILED_APPS=${FAILED_APPS[@]}" >> $GITHUB_ENV
+          
       - name: Summary
         run: |
-          echo "### ✅ All detected apps built and deployed" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Build and Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ -f summary.log ]]; then
             cat summary.log >> $GITHUB_STEP_SUMMARY
           else
             echo "_No apps changed or summary not generated._" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ -n "$SUCCESS_APPS" ]]; then
+            echo "✅ **Successfully built and deployed apps:**" >> $GITHUB_STEP_SUMMARY
+            for app in $SUCCESS_APPS; do
+              echo "- $app" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "❌ _No apps were successfully built._" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ -n "$FAILED_APPS" ]]; then
+            echo "⚠️ **Apps that failed to build:**" >> $GITHUB_STEP_SUMMARY
+            for app in $FAILED_APPS; do
+              echo "- $app" >> $GITHUB_STEP_SUMMARY
+            done
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
