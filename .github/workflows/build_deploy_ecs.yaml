@@ -81,7 +81,7 @@ jobs:
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
 
             echo "Building and pushing image for $APP..."
-            docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA}-$APP $APPS_PATH/$APP
+            docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA}-$APP ${APPS_PATH}/$APP
             docker push $IMAGE_URI:latest
             docker push $IMAGE_URI:${GITHUB_SHA}-$APP
             pwd
