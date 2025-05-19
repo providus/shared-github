@@ -86,7 +86,11 @@ jobs:
       - name: Summary
         run: |
           echo "### ✅ All detected apps built and deployed" >> $GITHUB_STEP_SUMMARY
-          for APP in ${{ steps.detect.outputs.apps }}; do
+
+          IFS=$'\n' read -r -a apps <<< "${{ steps.detect.outputs.apps }}"
+          for APP in "${apps[@]}"; do
             echo "- $APP" >> $GITHUB_STEP_SUMMARY
           done
-          echo "\nCheck the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 Check the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
