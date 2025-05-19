@@ -94,7 +94,8 @@ jobs:
             echo "  - 🚀 New image: \`$NEW_IMAGE\`" >> $SUMMARY_FILE
             echo "" >> $SUMMARY_FILE
           done <<< "${{ steps.detect.outputs.apps }}"
-
+          
+          git push
 
       - name: Summary
         run: |
