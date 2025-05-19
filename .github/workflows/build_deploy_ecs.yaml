@@ -1,4 +1,4 @@
-name: Build and Deploy on AWS ECS (Reusable)
+name: Build and Deploy on AWS ECS (Reusable - Multi App)
 
 on:
   workflow_call:
@@ -10,12 +10,6 @@ on:
         required: true
         type: string
       tf_dir:
-        required: true
-        type: string
-      task_definition_path:
-        required: true
-        type: string
-      dockerfile_path:
         required: true
         type: string
     secrets:
@@ -32,8 +26,6 @@ jobs:
       AWS_REGION: ${{ inputs.aws_region }}
       ECR_REPO: ${{ inputs.ecr_repo }}
       TF_DIR: ${{ inputs.tf_dir }}
-      DOCKERFILE_PATH: ${{ inputs.dockerfile_path }}
-      TASK_DEFINITION_PATH: ${{ inputs.task_definition_path }}
 
     steps:
       - name: Checkout code
@@ -48,53 +40,50 @@ jobs:
 
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
+
       - name: Get AWS Account ID
         id: account
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV 
-          
-      - name: Build and Push Docker Image
-        run: |
-          cd ${{ env.DOCKERFILE_PATH }}
-          IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}"
-          docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA} .
-          docker push $IMAGE_URI:latest
-          docker push $IMAGE_URI:${GITHUB_SHA}
-          echo "IMAGE_URI=$IMAGE_URI:${GITHUB_SHA}" >> $GITHUB_ENV
-          # Add summary output
-          echo "### ✅ Docker image built and pushed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image URI:** \`$IMAGE_URI:${GITHUB_SHA}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Git Commit SHA:** \`$GITHUB_SHA\`" >> $GITHUB_STEP_SUMMARY
-          
-      - name: Replace image URI in task definition
-        run: |
-          OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }})
-          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }} > tmp.json
-          mv tmp.json ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}
-          echo "### 🐳 ECS Task Definition Update in ${{ inputs.task_definition_path }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Old image:** \`$OLD_IMAGE\`" >> $GITHUB_STEP_SUMMARY
-          echo "**New image:** \`$IMAGE_URI\`" >> $GITHUB_STEP_SUMMARY
+          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
 
-
-      - name: Commit and push updated task-definition.json
-        id: commit-push
+      - name: Detect Changed Apps
+        id: detect
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}
-          git commit -m "Update task definition image to $GITHUB_SHA" || echo "No changes to commit"
+          CHANGED_APPS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^src/apps/' | cut -d'/' -f3 | sort -u)
+          echo "Detected apps: $CHANGED_APPS"
+          echo "apps<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_APPS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Build, Push, and Update Task Definitions
+        run: |
+          for APP in ${{ steps.detect.outputs.apps }}; do
+            echo "\n🔧 Processing $APP"
+            IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}-$APP"
+
+            echo "Building and pushing image for $APP..."
+            docker build -t $IMAGE_URI:latest -t $IMAGE_URI:${GITHUB_SHA} src/apps/$APP
+            docker push $IMAGE_URI:latest
+            docker push $IMAGE_URI:${GITHUB_SHA}
+
+            echo "Updating task definition for $APP..."
+            TASK_DEF_FILE="$TF_DIR/app-${APP}-task-definition.json"
+            OLD_IMAGE=$(jq -r '.containerDefinitions[0].image' "$TASK_DEF_FILE")
+            jq --arg IMAGE "$IMAGE_URI:${GITHUB_SHA}" '.containerDefinitions[0].image = $IMAGE' "$TASK_DEF_FILE" > tmp.json && mv tmp.json "$TASK_DEF_FILE"
+
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+            git add "$TASK_DEF_FILE"
+            git commit -m "Update $APP task definition to $GITHUB_SHA" || echo "No changes to commit"
+          done
+
           git push
-  
-      - name: Show image change diff in summary
-        if: steps.commit-push.outcome == 'success'
-        run: |
-          echo "## Image update in ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }}" >> $GITHUB_STEP_SUMMARY
-          git diff HEAD~1 HEAD -- ${{ env.TF_DIR }}/${{ env.TASK_DEFINITION_PATH }} | grep '"image"' >> $GITHUB_STEP_SUMMARY || echo "No image change detected"
 
-      - name: Add link to deploy_infra.yaml workflow 
-        if: steps.commit-push.outcome == 'success'
+      - name: Summary
         run: |
-          echo "### Next step" >> $GITHUB_STEP_SUMMARY
-          echo "Check the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
-
+          echo "### ✅ All detected apps built and deployed" >> $GITHUB_STEP_SUMMARY
+          for APP in ${{ steps.detect.outputs.apps }}; do
+            echo "- $APP" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "\nCheck the Terraform apply job here: [deploy_infra.yaml workflow](https://github.com/SkyHighGrowth/ai-pov/actions/workflows/deploy_infra.yaml)" >> $GITHUB_STEP_SUMMARY
