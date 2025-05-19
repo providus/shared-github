@@ -60,8 +60,12 @@ jobs:
 
       - name: Build, Push, and Update Task Definitions
         run: |
-          IFS=$'\n' read -r -a apps <<< "${{ steps.detect.outputs.apps }}"
-          for APP in "${apps[@]}"; do
+          echo "Raw app list:"
+          echo "${{ steps.detect.outputs.apps }}"
+
+          echo "Parsing and processing apps..."
+
+          while IFS= read -r APP; do
             echo "\n🔧 Processing $APP"
             IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
 
@@ -79,7 +83,7 @@ jobs:
             git config --global user.email "actions@github.com"
             git add "$TASK_DEF_FILE"
             git commit -m "Update $APP task definition to $GITHUB_SHA-$APP" || echo "No changes to commit"
-          done
+          done <<< "${{ steps.detect.outputs.apps }}"
 
           git push
 
