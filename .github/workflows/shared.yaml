@@ -134,6 +134,7 @@ jobs:
           fi
 
 
+
   scan:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
@@ -234,9 +235,11 @@ jobs:
             argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
           done
 
+
+
   restart:
     runs-on: ${{ inputs.runner-label }}
-    needs: [prepare,build,deploy]
+    #needs: [prepare,build,deploy]
     if: github.event.issue.pull_request && contains(github.event.comment.body, '/restart')
     steps:
       - name: Deploy ${{ matrix.target }}
