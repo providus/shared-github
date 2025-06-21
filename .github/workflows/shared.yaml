@@ -77,7 +77,7 @@ on:
         description: "Snyk token"
 
 permissions:
-#  contents: read
+  contents: read
   pull-requests: read
 
 concurrency:
