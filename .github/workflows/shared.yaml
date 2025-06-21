@@ -223,12 +223,34 @@ jobs:
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
+          ARGOCD_OPTS: "--grpc-web"
         run: |
           curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
           sudo install -m 555 argocd* /usr/local/bin/argocd
           
-          argocd app list --grpc-web | grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'
           
-          for app in $(argocd app list --grpc-web|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
-            argocd --grpc-web app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+          for app in $(argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+            argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+          done
+
+  restart:
+    runs-on: ${{ inputs.runner-label }}
+    needs: [prepare,build,deploy]
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/restart')
+    steps:
+      - name: Deploy ${{ matrix.target }}
+        shell: bash
+        env:
+          ARGOCD_SERVER: ${{ inputs.argocd-host }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
+          ARGOCD_OPTS: "--grpc-web"
+        run: |
+          curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
+          sudo install -m 555 argocd* /usr/local/bin/argocd
+          
+          argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'
+          
+          for app in $(argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+            argocd app actions run ${app} restart --kind Deployment;
           done
