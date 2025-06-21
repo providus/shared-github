@@ -245,7 +245,7 @@ jobs:
   restart:
     runs-on: ${{ inputs.runner-label }}
     #needs: [prepare,build,deploy]
-    if: (github.event.issue.pull_request && startsWith(github.event.comment.body, '/restart'))
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/restart')
     steps:
       - name: Deploy ${{ matrix.target }}
         shell: bash
