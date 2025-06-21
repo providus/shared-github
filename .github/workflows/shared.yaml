@@ -108,6 +108,7 @@ jobs:
           if [[ -n "$SNYK_TOKEN" ]]; then
             echo "snyk=true"   >> $GITHUB_OUTPUT
           fi
+          echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
           if [ 0 -lt $(ls ${{ inputs.build-context }}/*.sln 2>/dev/null | wc -w) ]; then
             echo "We are in DotNet!"; 
             echo "type=dotnet"                                >> $GITHUB_OUTPUT
