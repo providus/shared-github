@@ -97,7 +97,6 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          sudo apt-get -y -q install xq
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
@@ -114,19 +113,20 @@ jobs:
             echo "framework_version=$(cat ${{ inputs.build-context }}/.dotnet-version)"   >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
+          if ls "${{ inputs.build-context }}"/package.json >/dev/null 2>&1; then
             echo "We are in NodeJS"; 
             echo "type=nodejs"                                        >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then
+          if ls "${{ inputs.build-context }}"/pom.xml >/dev/null 2>&1; then
+            sudo apt-get -y -qq install xq
             echo "We are in Java"; 
             echo "type=java"                                  >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"        >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)" >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/requirements.txt 2>/dev/null | wc -w) ]; then
+          if ls "${{ inputs.build-context }}"/requirements.txt >/dev/null 2>&1; then
             echo "We are in Python (PyTorch)";
             echo "type=python" >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
