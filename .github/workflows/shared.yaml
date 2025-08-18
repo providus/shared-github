@@ -220,7 +220,7 @@ jobs:
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
           ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
-          ARGOCD_FLAGS: "--grpc-web"
+          ARGOCD_OPTS: "--grpc-web"
         run: |
           curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
           sudo install -m 555 argocd* /usr/local/bin/argocd
