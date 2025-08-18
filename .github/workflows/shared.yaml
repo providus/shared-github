@@ -101,11 +101,10 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          sudo apt-get -y -q install xq
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT 
-          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )">> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
+          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
@@ -113,28 +112,29 @@ jobs:
             echo "snyk=true"   >> $GITHUB_OUTPUT
           fi
           echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/*.sln 2>/dev/null | wc -w) ]; then
-            echo "We are in DotNet!"; 
-            echo "type=dotnet"                                >> $GITHUB_OUTPUT
+          if ls ${{ inputs.build-context }}/*.csproj >/dev/null 2>&1; then
+            echo "Detected: DotNet"; 
+            echo "type=dotnet"                                                            >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.dotnet-version)"   >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/package.json 2>/dev/null | wc -w) ]; then
-            echo "We are in NodeJS"; 
-            echo "type=nodejs"                                        >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"           >> $GITHUB_OUTPUT
-            echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)"   >> $GITHUB_OUTPUT
+          if ls ${{ inputs.build-context }}/package.json >/dev/null 2>&1; then
+            echo "Detected: NodeJS"; 
+            echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"         >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/pom.xml 2>/dev/null | wc -w) ]; then
-            echo "We are in Java"; 
-            echo "type=java"                                  >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"        >> $GITHUB_OUTPUT
-            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)" >> $GITHUB_OUTPUT
+          if ls ${{ inputs.build-context }}/pom.xml >/dev/null 2>&1; then
+            sudo apt-get -y -qq install xq
+            echo "Detected: Java"; 
+            echo "type=java"                                                                  >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"         >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"  >> $GITHUB_OUTPUT
           fi
-          if [ 0 -lt $(ls ${{ inputs.build-context }}/requirements.txt 2>/dev/null | wc -w) ]; then
-            echo "We are in Python (PyTorch)";
-            echo "type=python" >> $GITHUB_OUTPUT
-            echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
+          if ls ${{ inputs.build-context }}/requirements.txt >/dev/null 2>&1; then
+            echo "Detected: Python";
+            echo "type=python"                                          >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
           fi
 
 
@@ -179,26 +179,23 @@ jobs:
     outputs:
       image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
-      - name: DEBUG
-        if: ${{ inputs.debug }}
-        shell: bash
-        run: |
-          echo ${{ needs.prepare.outputs.framework_version }}
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
+        name: "Login to ${{ inputs.cr-host }}"
         with:
           registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
       - uses: docker/build-push-action@v6
+        name: "Build image"
         with:
           context: ${{ inputs.build-context }}
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
@@ -210,6 +207,7 @@ jobs:
           image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           args: --severity-threshold=critical
       - uses: docker/build-push-action@v6
+        name: "Push image"
         with:
           context: ${{ inputs.build-context }}
           push: true
