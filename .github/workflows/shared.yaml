@@ -100,7 +100,7 @@ jobs:
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
-          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )   >> $GITHUB_OUTPUT
+          echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
