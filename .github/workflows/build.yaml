@@ -158,8 +158,6 @@ jobs:
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
-    outputs:
-      image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -198,6 +196,6 @@ jobs:
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: |
-            ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+            ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}-${{ inputs.tag-suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
