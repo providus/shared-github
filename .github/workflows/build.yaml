@@ -27,6 +27,11 @@ on:
         required: true
         type: string
         description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
+      tag-suffix:
+        required: false
+        type: string
+        default: "SEED"
+        description: "Suffix added to the image tag, ie: providus/tenant-service:1.0-abc1234-SEED"
       app-name:
         required: true
         type: string
@@ -173,7 +178,7 @@ jobs:
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}-$GITHUB_JOB_NAME
+          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}-${{ inputs.tag-suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
