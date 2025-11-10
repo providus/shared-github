@@ -188,7 +188,7 @@ jobs:
           export SONAR_TOKEN=${{ secrets.sonar-token }}
           export SONAR_HOST_URL=${{ inputs.sonar-host }}
           mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
-            --no-transfer-progress --batch-mode
+            --no-transfer-progress --batch-mode --quiet
           echo "SONAR=completed" >> $GITHUB_ENV
       - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
