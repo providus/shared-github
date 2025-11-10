@@ -149,7 +149,7 @@ jobs:
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
       - name: Run SonarQube scan (generic)
         if: ${{ needs.prepare.outputs.type != 'dotnet' }}
-        uses: sonarsource/sonarqube-scan-action@v4
+        uses: sonarsource/sonarqube-scan-action@v5
         with:
           projectBaseDir: ${{ inputs.build-context }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
