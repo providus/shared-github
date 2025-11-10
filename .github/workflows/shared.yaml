@@ -81,11 +81,6 @@ on:
         required: false
         description: "Snyk token"
 
-permissions:
-  contents: read
-  actions: read
-  checks: write
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
