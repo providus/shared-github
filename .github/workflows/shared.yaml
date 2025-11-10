@@ -194,7 +194,7 @@ jobs:
         with:
           name: Test report
           path: target/surefire-reports/**
-          reporter: jest-junit
+          reporter: java-junit
 
   build:
     runs-on: ${{ inputs.runner-label }}
