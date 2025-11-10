@@ -149,7 +149,7 @@ jobs:
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           echo "SONAR=completed" >> $GITHUB_ENV
       - uses: actions/setup-java@v5
-        #if: ${{ needs.prepare.outputs.type == 'java' }}
+        if: ${{ needs.prepare.outputs.type == 'java' }}
         with:
           distribution: 'temurin'
           java-version: ${{ needs.prepare.outputs.framework_version }}
@@ -163,15 +163,15 @@ jobs:
             -Dsonar.login=${{ secrets.sonar-token }} \
             -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }}
           echo "SONAR=completed" >> $GITHUB_ENV
-#      - name: Run SonarQube scan (generic)
-#        if: ${{ !env.SONAR }}
-#        uses: sonarsource/sonarqube-scan-action@v5
-#        with:
-#          projectBaseDir: ${{ inputs.build-context }}
-#          scannerVersion: ${{ inputs.sonar-scanner-version }}
-#        env:
-#          SONAR_TOKEN: ${{ secrets.sonar-token }}
-#          SONAR_HOST_URL: ${{ inputs.sonar-host }}
+      - name: Run SonarQube scan (generic)
+        if: ${{ !env.SONAR }}
+        uses: sonarsource/sonarqube-scan-action@v5
+        with:
+          projectBaseDir: ${{ inputs.build-context }}
+          scannerVersion: ${{ inputs.sonar-scanner-version }}
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+          SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
   build:
     runs-on: ${{ inputs.runner-label }}
