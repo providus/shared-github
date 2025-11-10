@@ -102,6 +102,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
+          debconf-set man-db/auto-update false
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
