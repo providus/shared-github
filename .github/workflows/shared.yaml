@@ -178,7 +178,7 @@ jobs:
             -Dsonar.host.url=${{ inputs.sonar-host }} \
             -Dsonar.login=${{ secrets.sonar-token }} \
             -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }} \
-            -Dsonar.project.settings=./sonar-project.properties
+            -Dsonar.project.settings=${{ inputs.build-context }}/sonar-project.properties
           echo "SONAR=completed" >> $GITHUB_ENV
       - name: Run SonarQube scan (generic)
         if: ${{ !env.SONAR }}
