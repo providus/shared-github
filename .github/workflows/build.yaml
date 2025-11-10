@@ -149,7 +149,7 @@ jobs:
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           echo "SONAR=completed" >> $GITHUB_ENV
       - uses: actions/setup-java@v5
-        if: ${{ needs.prepare.outputs.type == 'java' }}
+        #if: ${{ needs.prepare.outputs.type == 'java' }}
         with:
           distribution: 'temurin'
           java-version: ${{ needs.prepare.outputs.framework_version }}
