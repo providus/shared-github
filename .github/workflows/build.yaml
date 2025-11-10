@@ -158,7 +158,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ inputs.build-context }}
-          mvn sonar:sonar --no-transfer-progress --batch-mode \
+          mvn verify sonar:sonar --no-transfer-progress --batch-mode \
             -Dsonar.host.url=${{ inputs.sonar-host }} \
             -Dsonar.login=${{ secrets.sonar-token }} \
             -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }}
