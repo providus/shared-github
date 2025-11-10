@@ -81,6 +81,11 @@ on:
         required: false
         description: "Snyk token"
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
@@ -151,7 +156,7 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run SonarQube scan (dotnet)
+      - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
@@ -168,9 +173,9 @@ jobs:
       - uses: actions/setup-java@v5
         if: ${{ needs.prepare.outputs.type == 'java' }}
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run SonarQube scan (java)
+      - name: "Run SonarQube scan (java)"
         if: ${{ needs.prepare.outputs.type == 'java' }}
         shell: bash
         run: |
@@ -180,7 +185,7 @@ jobs:
           mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
             --no-transfer-progress --batch-mode
           echo "SONAR=completed" >> $GITHUB_ENV
-      - name: Run SonarQube scan (generic)
+      - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@v5
         with:
@@ -189,6 +194,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
+      - name: "Test Report"
+        uses: dorny/test-reporter@v2
+        with:
+          name: Test report
+          path: target/surefire-reports/**
+          reporter: jest-junit
 
   build:
     runs-on: ${{ inputs.runner-label }}
