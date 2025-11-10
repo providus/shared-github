@@ -174,7 +174,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ inputs.build-context }}
-          mvn verify sonar:sonar --no-transfer-progress --batch-mode \
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar --no-transfer-progress --batch-mode \
             -Dsonar.host.url=${{ inputs.sonar-host }} \
             -Dsonar.login=${{ secrets.sonar-token }} \
             -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }}
