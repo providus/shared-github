@@ -127,7 +127,7 @@ jobs:
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: actions/setup-dotnet@v4
@@ -147,8 +147,24 @@ jobs:
             -v:${{ needs.prepare.outputs.app_version }}
           dotnet build
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
+          echo "SONAR=completed" >> $GITHUB_ENV
+      - uses: actions/setup-java@v5
+        if: ${{ needs.prepare.outputs.type == 'java' }}
+        with:
+          distribution: 'temurin'
+          java-version: ${{ needs.prepare.outputs.framework_version }}
+      - name: Run SonarQube scan (java)
+        if: ${{ needs.prepare.outputs.type == 'java' }}
+        shell: bash
+        run: |
+          cd ${{ inputs.build-context }}
+          mvn sonar:sonar --no-transfer-progress --batch-mode \
+            -Dsonar.host.url=${{ inputs.sonar-host }} \
+            -Dsonar.login=${{ secrets.sonar-token }} \
+            -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }}
+          echo "SONAR=completed" >> $GITHUB_ENV
       - name: Run SonarQube scan (generic)
-        if: ${{ needs.prepare.outputs.type != 'dotnet' }}
+        if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@v5
         with:
           projectBaseDir: ${{ inputs.build-context }}
