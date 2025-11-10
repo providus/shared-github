@@ -67,6 +67,16 @@ on:
         required: false
         type: boolean
         default: false
+      test-report-path:
+        required: false
+        type: string
+        default: "target/surefire-reports/**/TEST-*.xml"
+        description: "Path to test report files"
+      test-report-type:
+        required: false
+        type: string
+        default: "java-junit"
+        description: "Type of test report files"
     secrets:
       cr-pass:
         required: true
@@ -193,8 +203,8 @@ jobs:
         uses: dorny/test-reporter@v2
         with:
           name: Test report
-          path: target/surefire-reports/**
-          reporter: java-junit
+          path: ${{ inputs.test-report-path }}
+          reporter: ${{ inputs.test-report-type }}
 
   build:
     runs-on: ${{ inputs.runner-label }}
