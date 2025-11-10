@@ -102,7 +102,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          rm -f /var/lib/man-db/auto-update
+          sudo rm -f /var/lib/man-db/auto-update
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
