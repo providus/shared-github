@@ -175,12 +175,12 @@ jobs:
         shell: bash
         run: |
           cd ${{ inputs.build-context }}
-          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar --no-transfer-progress --batch-mode \
-            -Dsonar.host.url=${{ inputs.sonar-host }} \
-            -Dsonar.login=${{ secrets.sonar-token }} \
-            -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }} \
-            -Dsonar.project.settings=${{ inputs.build-context }}/sonar-project.properties
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
+            --no-transfer-progress --batch-mode
           echo "SONAR=completed" >> $GITHUB_ENV
+        with:
+          SONAR_TOKEN: ${{ secrets.sonar-token }}
+          SONAR_HOST_URL: ${{ inputs.sonar-host }}
       - name: Run SonarQube scan (generic)
         if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@v5
