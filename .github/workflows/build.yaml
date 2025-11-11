@@ -22,7 +22,7 @@ on:
         required: false
         type: string
         default: "Dockerfile"
-        description: "Dockerfile name"
+        description: "Path to Dockerfile"
       image-name:
         required: true
         type: string
@@ -54,6 +54,16 @@ on:
         required: false
         type: boolean
         default: false
+      test-report-path:
+        required: false
+        type: string
+        default: "target/surefire-reports/**/TEST-*.xml"
+        description: "Path to test report files"
+      test-report-type:
+        required: false
+        type: string
+        default: "java-junit"
+        description: "Type of test report files"
     secrets:
       cr-pass:
         required: true
@@ -86,6 +96,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
+          sudo rm -f /var/lib/man-db/auto-update
           SONAR_TOKEN="${{ secrets.sonar-token }}"
           SNYK_TOKEN="${{ secrets.snyk-token }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
@@ -134,7 +145,7 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run SonarQube scan (dotnet)
+      - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
@@ -151,19 +162,19 @@ jobs:
       - uses: actions/setup-java@v5
         if: ${{ needs.prepare.outputs.type == 'java' }}
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run SonarQube scan (java)
+      - name: "Run SonarQube scan (java)"
         if: ${{ needs.prepare.outputs.type == 'java' }}
         shell: bash
         run: |
           cd ${{ inputs.build-context }}
-          mvn verify sonar:sonar --no-transfer-progress --batch-mode \
-            -Dsonar.host.url=${{ inputs.sonar-host }} \
-            -Dsonar.login=${{ secrets.sonar-token }} \
-            -Dsonar.projectVersion=${{ needs.prepare.outputs.app_version }}
+          export SONAR_TOKEN=${{ secrets.sonar-token }}
+          export SONAR_HOST_URL=${{ inputs.sonar-host }}
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
+            --no-transfer-progress --batch-mode --quiet
           echo "SONAR=completed" >> $GITHUB_ENV
-      - name: Run SonarQube scan (generic)
+      - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@v5
         with:
@@ -172,6 +183,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
+      - name: "Test Report"
+        uses: dorny/test-reporter@v2
+        with:
+          name: Test report
+          path: ${{ inputs.test-report-path }}
+          reporter: ${{ inputs.test-report-type }}
 
   build:
     runs-on: ${{ inputs.runner-label }}
