@@ -47,7 +47,7 @@ on:
         required: false
         type: string
         default: "https://sonarqube.infra.providus.rs/"
-        description: "Address of sonar scannner"
+        description: "Address of sonar scanner"
       sonar-scanner-version:
         required: false
         type: string
@@ -107,7 +107,7 @@ jobs:
       sha_short: ${{ steps.prepare.outputs.sha_short }}
       app_version: ${{ steps.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Prepare
         id: prepare
         shell: bash
