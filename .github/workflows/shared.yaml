@@ -252,8 +252,9 @@ jobs:
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
           tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: inline
           outputs: type=docker
+          platforms: linux/amd64
 
       - name: "Debug: List Docker images"
         if: ${{ inputs.debug }}
@@ -286,6 +287,7 @@ jobs:
               echo "</details>"
             } >> $GITHUB_STEP_SUMMARY
           fi
+
       - uses: docker/build-push-action@v6
         name: "Push image"
         with:
@@ -297,7 +299,8 @@ jobs:
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
-          cache-to: inline
+          cache-to: type=gha,mode=min
+          platforms: linux/amd64
 
   deploy:
     runs-on: ${{ inputs.runner-label }}
