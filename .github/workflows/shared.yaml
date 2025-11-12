@@ -79,8 +79,8 @@ on:
         description: "Type of test report files"
       scan-image:
         required: false
-        type: boolean
-        description: "Enable image vulnerability scanning"
+        type: string
+        description: "Enable image vulnerability scanning by selecting treshold level (e.g., HIGH or CRITICAL)"
     secrets:
       cr-pass:
         required: true
@@ -236,9 +236,7 @@ jobs:
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: |
-            ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-            ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
@@ -248,15 +246,16 @@ jobs:
       - uses: aquasecurity/trivy-action@0.33.1
         name: "Run vulnerability scanner"
         if: ${{ needs.prepare.outputs.scan-image }}
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: true
         with:
-          image-ref: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           hide-progress: true
-          #exit-code: '1'
-          #ignore-unfixed: true
-          #vuln-type: 'os,library'
-          severity: 'CRITICAL'
+          ignore-unfixed: true
+          severity: ${{ inputs.scan-image }}
           scan-type: image
           output: trivy.txt
+          scanners: vuln,secret,misconfig,license
 #      - uses: snyk/actions/docker@v1
 #        if: ${{ needs.prepare.outputs.snyk }}
 #        env:
