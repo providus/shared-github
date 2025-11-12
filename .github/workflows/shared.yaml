@@ -272,7 +272,7 @@ jobs:
           severity: ${{ inputs.scan-image }}
           scan-type: image
           output: trivy.txt
-          #scanners: vuln
+          scanners: vuln
 
       - name: "Publish Trivy Output to Summary"
         run: |
