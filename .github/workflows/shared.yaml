@@ -35,7 +35,7 @@ on:
         required: false
         type: string
         description: "ArgoCD binary version"
-        default: "2.11.7"
+        default: "2.14.11"
       tenant:
         required: true
         type: string

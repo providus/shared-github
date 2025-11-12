@@ -6,20 +6,21 @@ This workflow is a reusable GitHub Actions pipeline for building, scanning, and 
 
 | Name                  | Required | Default Value                                 | Description                                      |
 |-----------------------|----------|-----------------------------------------------|--------------------------------------------------|
+| app-name              | Yes      |                                               | Application name                                 |
+| argocd-host           | Yes      |                                               | ArgoCD hostname                                  |
+| argocd-version        | No       | 2.14.11                                       | ArgoCD binary version                            |
+| build-context         | No       | .                                             | Build context for Docker build                   |
 | cr-host               | No       | docker.io                                     | Container registry hostname                      |
 | cr-login              | No       | providus                                      | Username for container registry                  |
-| build-context         | No       | .                                             | Build context for Docker build                   |
+| debug                 | No       | false                                         | Enable debug mode                                |
 | dockerfile            | No       | Dockerfile                                    | Path to Dockerfile                               |
+| env-name              | No       | dev                                           | Environment name                                 |
 | image-name            | Yes      |                                               | Name of the image (e.g., providus/tenant-service)|
-| argocd-host           | Yes      |                                               | ArgoCD hostname                                  |
-| argocd-version        | No       | 2.11.7                                        | ArgoCD binary version                            |
-| tenant                | Yes      |                                               | Tenant name                                      |
-| app-name              | Yes      |                                               | Application name                                 |
+| runner-label          | No       | ubuntu-24.04                                  | Runner label                                     |
+| scan-image            | No       |                                               | Enable image vulnerability scanning by selecting treshold level (e.g., HIGH or CRITICAL) |
 | sonar-host            | No       | https://sonarqube.infra.providus.rs/          | SonarQube server address                         |
 | sonar-scanner-version | No       | 6.2.1.4610                                    | Sonar scanner version                            |
-| env-name              | No       | dev                                           | Environment name                                 |
-| runner-label          | No       | ubuntu-24.04                                  | Runner label                                     |
-| debug                 | No       | false                                         | Enable debug mode                                |
+| tenant                | Yes      |                                               | Tenant name                                      |
 | test-report-path      | No       | target/surefire-reports/**/TEST-*.xml         | Path to test report files                        |
 | test-report-type      | No       | java-junit                                    | Type of test report files                        |
 
