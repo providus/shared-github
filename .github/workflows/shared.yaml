@@ -297,7 +297,7 @@ jobs:
           tags: |
             ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: inline
 
   deploy:
     runs-on: ${{ inputs.runner-label }}
