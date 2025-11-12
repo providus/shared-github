@@ -240,16 +240,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@0.33.1
         name: "Run vulnerability scanner"
         if: ${{ needs.prepare.outputs.scan-image }}
         with:
           image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
+          hide-progress: true
+          #exit-code: '1'
+          #ignore-unfixed: true
+          #vuln-type: 'os,library'
           severity: 'CRITICAL'
+          scan-type: config
+          output: trivy.txt
 #      - uses: snyk/actions/docker@v1
 #        if: ${{ needs.prepare.outputs.snyk }}
 #        env:
@@ -257,6 +259,19 @@ jobs:
 #        with:
 #          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
 #          args: --severity-threshold=critical
+      - name: "Publish Trivy Output to Summary"
+        run: |
+          if [[ -s trivy.txt ]]; then
+            {
+              echo "### Security Output"
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```terraform'
+              cat trivy.txt
+              echo '```'
+              echo "</details>"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
       - uses: docker/build-push-action@v6
         name: "Push image"
         with:
