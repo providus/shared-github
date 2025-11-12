@@ -22,7 +22,7 @@ on:
         required: false
         type: string
         default: "Dockerfile"
-        description: "Dockerfile name"
+        description: "Path to Dockerfile"
       image-name:
         required: true
         type: string
@@ -54,6 +54,16 @@ on:
         required: false
         type: boolean
         default: false
+      test-report-path:
+        required: false
+        type: string
+        default: "target/surefire-reports/**/TEST-*.xml"
+        description: "Path to test report files"
+      test-report-type:
+        required: false
+        type: string
+        default: "java-junit"
+        description: "Type of test report files"
     secrets:
       cr-pass:
         required: true
@@ -75,26 +85,29 @@ jobs:
     outputs:
       repo_name: ${{ steps.prepare.outputs.repo_name }}
       sonar: ${{ steps.prepare.outputs.sonar }}
-      snyk: ${{ steps.prepare.outputs.snyk }}
+      scan-image: ${{ steps.prepare.outputs.scan-image }}
       type: ${{ steps.prepare.outputs.type }}
       framework_version: ${{ steps.prepare.outputs.framework_version }}
       sha_short: ${{ steps.prepare.outputs.sha_short }}
       app_version: ${{ steps.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v5
+
       - name: Prepare
         id: prepare
         shell: bash
         run: |
+          sudo rm -f /var/lib/man-db/auto-update
           SONAR_TOKEN="${{ secrets.sonar-token }}"
-          SNYK_TOKEN="${{ secrets.snyk-token }}"
+          SCAN_IMAGE="${{ inputs.scan-image }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
-          if [[ -n "$SNYK_TOKEN" ]]; then
-            echo "snyk=true"   >> $GITHUB_OUTPUT
+          if [[ -n "$SCAN_IMAGE" ]]; then
+            echo "scan-image=true"   >> $GITHUB_OUTPUT
           fi
           if ls ${{ inputs.build-context }}/*.csproj >/dev/null 2>&1; then
             echo "Detected: DotNet"; 
@@ -127,12 +140,17 @@ jobs:
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar }}
     steps:
-      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-dotnet@v4
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
-      - name: Run SonarQube scan (dotnet)
+
+      - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
@@ -145,9 +163,28 @@ jobs:
             -v:${{ needs.prepare.outputs.app_version }}
           dotnet build
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
-      - name: Run SonarQube scan (generic)
-        if: ${{ needs.prepare.outputs.type != 'dotnet' }}
-        uses: sonarsource/sonarqube-scan-action@v4
+          echo "SONAR=completed" >> $GITHUB_ENV
+
+      - uses: actions/setup-java@v5
+        if: ${{ needs.prepare.outputs.type == 'java' }}
+        with:
+          distribution: temurin
+          java-version: ${{ needs.prepare.outputs.framework_version }}
+
+      - name: "Run SonarQube scan (java)"
+        if: ${{ needs.prepare.outputs.type == 'java' }}
+        shell: bash
+        run: |
+          cd ${{ inputs.build-context }}
+          export SONAR_TOKEN=${{ secrets.sonar-token }}
+          export SONAR_HOST_URL=${{ inputs.sonar-host }}
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
+            --no-transfer-progress --batch-mode --quiet
+          echo "SONAR=completed" >> $GITHUB_ENV
+
+      - name: "Run SonarQube scan (generic)"
+        if: ${{ !env.SONAR }}
+        uses: sonarsource/sonarqube-scan-action@v5
         with:
           projectBaseDir: ${{ inputs.build-context }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
@@ -155,19 +192,31 @@ jobs:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
+      - name: "Test Report"
+        uses: dorny/test-reporter@v2
+        with:
+          name: Test report
+          path: ${{ inputs.test-report-path }}
+          reporter: ${{ inputs.test-report-type }}
+
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     steps:
-      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v5
+
       - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         name: "Login to ${{ inputs.cr-host }}"
         with:
           registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
+
       - uses: docker/build-push-action@v6
         name: "Build image"
         with:
@@ -180,22 +229,40 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
-      - uses: snyk/actions/docker@master
-        if: ${{ needs.prepare.outputs.snyk }}
+          platforms: linux/amd64
+
+      - name: "Debug: List Docker images"
+        if: ${{ inputs.debug }}
+        run: docker images
+
+      - uses: aquasecurity/trivy-action@0.33.1
+        name: "Run vulnerability scanner"
+        if: ${{ needs.prepare.outputs.scan-image }}
         env:
-          SNYK_TOKEN: ${{ secrets.snyk-token }}
+          TRIVY_DISABLE_VEX_NOTICE: true
         with:
-          image: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-          args: --severity-threshold=critical
-      - uses: docker/build-push-action@v6
-        name: "Push image"
-        with:
-          context: ${{ inputs.build-context }}
-          file: ${{ inputs.dockerfile }}
-          push: true
-          build-args: |
-            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: |
-            ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}-${{ inputs.tag-suffix }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          hide-progress: true
+          ignore-unfixed: true
+          severity: ${{ inputs.scan-image }}
+          scan-type: image
+          output: trivy.txt
+          scanners: vuln
+
+      - name: "Publish Trivy Output to Summary"
+        run: |
+          if [[ -s trivy.txt ]]; then
+            {
+              echo "### Security Output"
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```terraform'
+              cat trivy.txt
+              echo '```'
+              echo "</details>"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: "Push image"
+        run: |
+          docker push ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
