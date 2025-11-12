@@ -236,21 +236,26 @@ jobs:
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          tags: |
+            ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+            ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
+      - name: "Debug: List Docker images"
+        if: ${{ inputs.debug }}
+        run: docker images
       - uses: aquasecurity/trivy-action@0.33.1
         name: "Run vulnerability scanner"
         if: ${{ needs.prepare.outputs.scan-image }}
         with:
-          image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
+          image-ref: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           hide-progress: true
           #exit-code: '1'
           #ignore-unfixed: true
           #vuln-type: 'os,library'
           severity: 'CRITICAL'
-          scan-type: config
+          scan-type: image
           output: trivy.txt
 #      - uses: snyk/actions/docker@v1
 #        if: ${{ needs.prepare.outputs.snyk }}
