@@ -221,7 +221,7 @@ jobs:
           sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
           sonar-host-url: ${{ inputs.sonar-host }}
           sonar-token: ${{ secrets.sonar-token }}
-          #github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Show Sonar Scan report"
         run: |
@@ -229,6 +229,7 @@ jobs:
           echo "${{ steps.quality-gate-check.outputs.quality-gate-result }}"
 
       - name: "Show Unit Test report"
+        if: ${{ inputs.test-report-path != '' }}
         uses: dorny/test-reporter@v2
         with:
           name: Test report
