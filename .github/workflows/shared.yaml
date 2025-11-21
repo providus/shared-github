@@ -80,7 +80,7 @@ on:
       scan-image:
         required: false
         type: string
-        description: "Enable image vulnerability scanning by selecting treshold level (e.g., HIGH or CRITICAL)"
+        description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
     secrets:
       cr-pass:
         required: true
@@ -110,6 +110,7 @@ jobs:
       framework_version: ${{ steps.prepare.outputs.framework_version }}
       sha_short: ${{ steps.prepare.outputs.sha_short }}
       app_version: ${{ steps.prepare.outputs.version }}
+      sonar_project: ${{ steps.prepare.outputs.sonar_project }}
     steps:
 
       - uses: actions/checkout@v5
@@ -144,16 +145,16 @@ jobs:
           if ls ${{ inputs.build-context }}/pom.xml >/dev/null 2>&1; then
             sudo apt-get -y -qq install xq
             echo "Detected: Java"; 
-            echo "type=java"                                                                  >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"         >> $GITHUB_OUTPUT
-            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"  >> $GITHUB_OUTPUT
+            echo "type=java"                                                                          >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"                 >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"          >> $GITHUB_OUTPUT
+            echo "sonar_project=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/artifactId)" >> $GITHUB_OUTPUT
           fi
           if ls ${{ inputs.build-context }}/requirements.txt >/dev/null 2>&1; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
           fi
-
 
   scan-code:
     runs-on: ${{ inputs.runner-label }}
@@ -212,7 +213,22 @@ jobs:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
-      - name: "Test Report"
+      - name: "Get Sonar Scan report"
+        uses: phwt/sonarqube-quality-gate-action@v1
+        id: quality-gate-check
+        with:
+          sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
+          sonar-host-url: ${{ inputs.sonar-host }}
+          sonar-token: ${{ secrets.sonar-token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Show Sonar Scan report"
+        run: |
+          echo "${{ steps.quality-gate-check.outputs.project-status }}"
+          echo "${{ steps.quality-gate-check.outputs.quality-gate-result }}"
+
+      - name: "Show Unit Test report"
+        if: ${{ inputs.test-report-path != '' }}
         uses: dorny/test-reporter@v2
         with:
           name: Test report
@@ -229,8 +245,12 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
 
       - uses: docker/setup-buildx-action@v3
+        with:
+         platforms: linux/amd64
 
       - uses: docker/login-action@v3
         name: "Login to ${{ inputs.cr-host }}"
@@ -275,6 +295,7 @@ jobs:
           scanners: vuln
 
       - name: "Publish Trivy Output to Summary"
+        if: ${{ needs.prepare.outputs.scan-image }}
         run: |
           if [[ -s trivy.txt ]]; then
             {
@@ -297,7 +318,7 @@ jobs:
     needs: [prepare,build]
     steps:
 
-      - name: "Deploy ${{ matrix.target }}"
+      - name: "Deploy ${{ inputs.app-name }} to ArgoCD"
         shell: bash
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
