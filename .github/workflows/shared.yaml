@@ -331,5 +331,14 @@ jobs:
           argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
           
           for app in $(argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
-            argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+            # Check if app has multiple sources
+            source_count=$(argocd app get ${app} -o json | jq -r '.spec.sources | length // 0')
+            
+            if [[ "$source_count" -gt 1 ]]; then
+              echo "Multi-source app detected (${source_count} sources), using --source-position 1"
+              argocd app set ${app} --source-position 1 -p image.tag=${{ needs.build.outputs.image_tag }};
+            else
+              echo "Single-source app detected"
+              argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+            fi
           done
