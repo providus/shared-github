@@ -280,7 +280,7 @@ jobs:
         if: ${{ inputs.debug }}
         run: docker images
 
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.35.0
         name: "Run vulnerability scanner"
         if: ${{ needs.prepare.outputs.scan-image }}
         env:
