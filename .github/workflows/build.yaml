@@ -64,6 +64,11 @@ on:
         type: string
         default: "java-junit"
         description: "Type of test report files"
+      enable-scan:
+        required: false
+        type: boolean
+        default: false
+        description: "Enable SonarQube code scan"
     secrets:
       cr-pass:
         required: true
@@ -138,7 +143,7 @@ jobs:
   scan:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
-    if: ${{ needs.prepare.outputs.sonar }}
+    if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
     steps:
 
       - uses: actions/checkout@v5
