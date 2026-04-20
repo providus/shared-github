@@ -81,6 +81,11 @@ on:
         required: false
         type: string
         description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
+      skip-scan:
+        required: false
+        type: boolean
+        default: false
+        description: "Skip SonarQube code scan"
     secrets:
       cr-pass:
         required: true
@@ -159,7 +164,7 @@ jobs:
   scan-code:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
-    if: ${{ needs.prepare.outputs.sonar }}
+    if: ${{ needs.prepare.outputs.sonar && !inputs.skip-scan }}
     steps:
 
       - uses: actions/checkout@v5
