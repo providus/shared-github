@@ -222,7 +222,7 @@ jobs:
         uses: phwt/sonarqube-quality-gate-action@v1
         id: quality-gate-check
         with:
-          sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
+          sonar-project-key: ${{ needs.prepare.outputs.repo_name }}
           sonar-host-url: ${{ inputs.sonar-host }}
           sonar-token: ${{ secrets.sonar-token }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
