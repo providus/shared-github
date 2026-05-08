@@ -210,7 +210,7 @@ jobs:
 
       - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
-        uses: sonarsource/sonarqube-scan-action@v5
+        uses: sonarsource/sonarqube-scan-action@v6
         with:
           projectBaseDir: ${{ inputs.build-context }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
