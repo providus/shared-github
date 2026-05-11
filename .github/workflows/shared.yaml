@@ -118,7 +118,7 @@ jobs:
       sonar_project: ${{ steps.prepare.outputs.sonar_project }}
     steps:
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Prepare
         id: prepare
@@ -167,11 +167,11 @@ jobs:
     if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
     steps:
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
@@ -210,7 +210,7 @@ jobs:
 
       - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
-        uses: sonarsource/sonarqube-scan-action@v5
+        uses: sonarsource/sonarqube-scan-action@59db25f   # v8
         with:
           projectBaseDir: ${{ inputs.build-context }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
@@ -219,7 +219,7 @@ jobs:
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
       - name: "Get Sonar Scan report"
-        uses: phwt/sonarqube-quality-gate-action@v1
+        uses: phwt/sonarqube-quality-gate-action@e8842ff  # v1
         id: quality-gate-check
         with:
           sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
@@ -234,7 +234,7 @@ jobs:
 
       - name: "Show Unit Test report"
         if: ${{ inputs.test-report-path != '' }}
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@a43b3a5     # v3
         with:
           name: Test report
           path: ${{ inputs.test-report-path }}
@@ -247,9 +247,9 @@ jobs:
       image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@ce36039  # v4
         with:
           platforms: linux/amd64
 
