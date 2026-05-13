@@ -120,6 +120,10 @@ jobs:
       test-report-type: ${{ inputs.test-report-type }}
       scan-image: ${{ inputs.scan-image }}
       enable-scan: ${{ inputs.enable-scan }}
+    secrets:
+      cr-pass: ${{ secrets.cr-pass }}
+      sonar-token: ${{ secrets.sonar-token }}
+      snyk-token: ${{ secrets.snyk-token }}
   deploy:
     uses: ./.github/workflows/deploy.yaml
     needs: build
@@ -133,5 +137,3 @@ jobs:
       debug: ${{ inputs.debug }}
     secrets:
       argocd-token: ${{ secrets.argocd-token }}
-      sonar-token: ${{ secrets.sonar-token }}
-      snyk-token: ${{ secrets.snyk-token }}
