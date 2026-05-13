@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      argocd-host:
+        required: true
+        type: string
+        description: "ArgoCD hostname"
+      argocd-version:
+        required: false
+        type: string
+        description: "ArgoCD binary version"
+        default: "2.14.11"
+      tenant:
+        required: true
+        type: string
+        description: "Tenant name"
+      app-name:
+        required: true
+        type: string
+      env-name:
+        required: false
+        type: string
+        default: "dev"
+        description: "Environment name"
+      runner-label:
+        required: false
+        type: string
+        default: "ubuntu-24.04"
+        description: "Runner name or label where to run"
+      debug:
+        required: false
+        type: boolean
+        default: false
+        description: "Enable debug output"
+    secrets:
+      argocd-token:
+        required: true
+        description: "ArgoCD token"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ${{ inputs.runner-label }}
+    steps:
+
+      - name: "Deploy ${{ inputs.app-name }} to ArgoCD"
+        shell: bash
+        env:
+          ARGOCD_SERVER: ${{ inputs.argocd-host }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.argocd-token }}
+          ARGOCD_OPTS: "--grpc-web"
+        run: |
+          curl -sSLO https://github.com/argoproj/argo-cd/releases/download/v${{ inputs.argocd-version }}/argocd-linux-amd64
+          sudo install -m 555 argocd* /usr/local/bin/argocd
+          
+          argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          
+          for app in $(argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
+            # Check if app has multiple sources
+            source_count=$(argocd app get ${app} -o json | jq -r '.spec.sources | length // 0')
+          
+            if [[ "$source_count" -gt 1 ]]; then
+              echo "Multi-source app detected (${source_count} sources), using --source-position 1"
+              argocd app set ${app} --source-position 1 -p image.tag=${{ needs.build.outputs.image_tag }};
+            else
+              echo "Single-source app detected"
+              argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+            fi
+          done
+

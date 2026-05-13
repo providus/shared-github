@@ -27,11 +27,19 @@ on:
         required: true
         type: string
         description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
-      tag-suffix:
+      argocd-host:
+        required: true
+        type: string
+        description: "ArgoCD hostname"
+      argocd-version:
         required: false
         type: string
-        default: "SEED"
-        description: "Suffix added to the image tag, ie: providus/tenant-service:1.0-abc1234-SEED"
+        description: "ArgoCD binary version"
+        default: "2.14.11"
+      tenant:
+        required: true
+        type: string
+        description: "Tenant name"
       app-name:
         required: true
         type: string
@@ -39,12 +47,17 @@ on:
         required: false
         type: string
         default: "https://sonarqube.infra.providus.rs/"
-        description: "Address of sonar scannner"
+        description: "Address of sonar scanner"
       sonar-scanner-version:
         required: false
         type: string
         description: "Version of sonar scanner"
         default: "6.2.1.4610"
+      env-name:
+        required: false
+        type: string
+        default: "dev"
+        description: "Environment name"
       runner-label:
         required: false
         type: string
@@ -64,6 +77,10 @@ on:
         type: string
         default: "java-junit"
         description: "Type of test report files"
+      scan-image:
+        required: false
+        type: string
+        description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
       enable-scan:
         required: false
         type: boolean
@@ -73,6 +90,9 @@ on:
       cr-pass:
         required: true
         description: "Registry token"
+      argocd-token:
+        required: true
+        description: "ArgoCD token"
       sonar-token:
         required: false
         description: "Sonar token"
@@ -95,6 +115,7 @@ jobs:
       framework_version: ${{ steps.prepare.outputs.framework_version }}
       sha_short: ${{ steps.prepare.outputs.sha_short }}
       app_version: ${{ steps.prepare.outputs.version }}
+      sonar_project: ${{ steps.prepare.outputs.sonar_project }}
     steps:
 
       - uses: actions/checkout@v6
@@ -129,9 +150,10 @@ jobs:
           if ls ${{ inputs.build-context }}/pom.xml >/dev/null 2>&1; then
             sudo apt-get -y -qq install xq
             echo "Detected: Java"; 
-            echo "type=java"                                                                  >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"         >> $GITHUB_OUTPUT
-            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"  >> $GITHUB_OUTPUT
+            echo "type=java"                                                                          >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"                 >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"          >> $GITHUB_OUTPUT
+            echo "sonar_project=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/artifactId)" >> $GITHUB_OUTPUT
           fi
           if ls ${{ inputs.build-context }}/requirements.txt >/dev/null 2>&1; then
             echo "Detected: Python";
@@ -140,8 +162,7 @@ jobs:
           fi
 
 
-
-  scan:
+  scan-code:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
@@ -151,7 +172,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         with:
           dotnet-version: ${{ needs.prepare.outputs.framework_version }}
@@ -171,7 +192,7 @@ jobs:
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           echo "SONAR=completed" >> $GITHUB_ENV
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654   # v5
         if: ${{ needs.prepare.outputs.type == 'java' }}
         with:
           distribution: temurin
@@ -190,7 +211,7 @@ jobs:
 
       - name: "Run SonarQube scan (generic)"
         if: ${{ !env.SONAR }}
-        uses: sonarsource/sonarqube-scan-action@v8
+        uses: sonarsource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432   # v8
         with:
           projectBaseDir: ${{ inputs.build-context }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
@@ -198,8 +219,23 @@ jobs:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
-      - name: "Test Report"
-        uses: dorny/test-reporter@a43b3a5     # v3
+      - name: "Get Sonar Scan report"
+        uses: phwt/sonarqube-quality-gate-action@e8842ff65b97bfa4fd4effe3ab0909f568d16e91  # v1
+        id: quality-gate-check
+        with:
+          sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
+          sonar-host-url: ${{ inputs.sonar-host }}
+          sonar-token: ${{ secrets.sonar-token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Show Sonar Scan report"
+        run: |
+          echo "${{ steps.quality-gate-check.outputs.project-status }}"
+          echo "${{ steps.quality-gate-check.outputs.quality-gate-result }}"
+
+      - name: "Show Unit Test report"
+        if: ${{ inputs.test-report-path != '' }}
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2     # v3
         with:
           name: Test report
           path: ${{ inputs.test-report-path }}
@@ -208,30 +244,39 @@ jobs:
   build:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
+    outputs:
+      image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
 
       - uses: actions/checkout@v6
 
-      - uses: docker/setup-qemu-action@ce36039  # v4
+      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4
+        with:
+          platforms: linux/amd64
 
-      - uses: docker/setup-buildx-action@4d04d5d  # v4
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd   # v4
+        with:
+          platforms: linux/amd64
 
-      - uses: docker/login-action@4907a6d   # v4
+      - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
         with:
           registry: ${{ inputs.cr-host }}
           username: ${{ inputs.cr-login }}
           password: ${{ secrets.cr-pass }}
 
-      - uses: docker/build-push-action@bcafcac  # v7
+      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         name: "Build image"
+        env:
+          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: ${{ inputs.build-context }}
           file: ${{ inputs.dockerfile }}
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}-${{ inputs.tag-suffix }}
+          tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=docker
@@ -241,7 +286,7 @@ jobs:
         if: ${{ inputs.debug }}
         run: docker images
 
-      - uses: aquasecurity/trivy-action@ed142fd # v0.36.0
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner"
         if: ${{ needs.prepare.outputs.scan-image }}
         env:
@@ -256,6 +301,7 @@ jobs:
           scanners: vuln
 
       - name: "Publish Trivy Output to Summary"
+        if: ${{ needs.prepare.outputs.scan-image }}
         run: |
           if [[ -s trivy.txt ]]; then
             {
@@ -272,4 +318,3 @@ jobs:
       - name: "Push image"
         run: |
           docker push ${{ inputs.cr-host }}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}
-
