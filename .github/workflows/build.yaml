@@ -27,10 +27,6 @@ on:
         required: true
         type: string
         description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
-      tenant:
-        required: true
-        type: string
-        description: "Tenant name"
       app-name:
         required: true
         type: string
