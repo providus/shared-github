@@ -27,15 +27,6 @@ on:
         required: true
         type: string
         description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
-      argocd-host:
-        required: true
-        type: string
-        description: "ArgoCD hostname"
-      argocd-version:
-        required: false
-        type: string
-        description: "ArgoCD binary version"
-        default: "2.14.11"
       tenant:
         required: true
         type: string
