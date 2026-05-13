@@ -113,7 +113,6 @@ jobs:
       image-name: ${{ inputs.image-name }}
       build-context: ${{ inputs.build-context }}
       dockerfile: ${{ inputs.dockerfile }}
-      tenant: ${{ inputs.tenant }}
       app-name: ${{ inputs.app-name }}
       sonar-host: ${{ inputs.sonar-host }}
       sonar-scanner-version: ${{ inputs.sonar-scanner-version }}
