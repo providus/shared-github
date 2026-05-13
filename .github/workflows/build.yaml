@@ -82,9 +82,6 @@ on:
       cr-pass:
         required: true
         description: "Registry token"
-      argocd-token:
-        required: true
-        description: "ArgoCD token"
       sonar-token:
         required: false
         description: "Sonar token"
