@@ -89,9 +89,9 @@ on:
         required: false
         description: "Snyk token"
 
-#concurrency:
-#  group: ${{ github.workflow }}-${{ github.ref_name }}
-#  cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.job }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
