@@ -39,9 +39,9 @@ on:
         required: true
         description: "ArgoCD token"
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
+#concurrency:
+#  group: ${{ github.workflow }}-${{ github.ref_name }}
+#  cancel-in-progress: true
 
 jobs:
   deploy:
