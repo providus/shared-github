@@ -79,7 +79,9 @@ on:
         default: false
         description: "Enable SonarQube code scan"
     outputs:
-      image-tag: ${{ jobs.build.outputs.image-tag }}
+      image-tag:
+        description: 'Built image tag with version and commit SHA'
+        value: ${{ jobs.build.outputs.image-tag }}
     secrets:
       cr-pass:
         required: true
