@@ -101,7 +101,7 @@ on:
         description: "Snyk token"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.job }}
   cancel-in-progress: true
 
 jobs:
@@ -133,6 +133,7 @@ jobs:
       tenant: ${{ inputs.tenant }}
       app-name: ${{ inputs.app-name }}
       env-name: ${{ inputs.env-name }}
+      image-tag: ${{ needs.build.outputs.image-tag }}
       runner-label: ${{ inputs.runner-label }}
       debug: ${{ inputs.debug }}
     secrets:

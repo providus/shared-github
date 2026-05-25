@@ -24,6 +24,10 @@ on:
         type: string
         default: "dev"
         description: "Environment name"
+      image-tag:
+        required: true
+        type: string
+        description: "Image tag to deploy"
       runner-label:
         required: false
         type: string
@@ -66,10 +70,10 @@ jobs:
           
             if [[ "$source_count" -gt 1 ]]; then
               echo "Multi-source app detected (${source_count} sources), using --source-position 1"
-              argocd app set ${app} --source-position 1 -p image.tag=${{ needs.build.outputs.image_tag }};
+              argocd app set ${app} --source-position 1 -p image.tag=${{ inputs.image-tag }};
             else
               echo "Single-source app detected"
-              argocd app set ${app} -p image.tag=${{ needs.build.outputs.image_tag }};
+              argocd app set ${app} -p image.tag=${{ inputs.image-tag }};
             fi
           done
 

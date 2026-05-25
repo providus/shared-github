@@ -78,6 +78,8 @@ on:
         type: boolean
         default: false
         description: "Enable SonarQube code scan"
+    outputs:
+      image-tag: ${{ jobs.build.outputs.image-tag }}
     secrets:
       cr-pass:
         required: true
@@ -234,7 +236,7 @@ jobs:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
     outputs:
-      image_tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
+      image-tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
 
       - uses: actions/checkout@v6
