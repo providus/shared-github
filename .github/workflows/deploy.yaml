@@ -43,10 +43,6 @@ on:
         required: true
         description: "ArgoCD token"
 
-#concurrency:
-#  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.job }}
-#  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ${{ inputs.runner-label }}
