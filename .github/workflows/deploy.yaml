@@ -45,6 +45,7 @@ on:
 
 jobs:
   deploy:
+    environment: ${{ inputs.env-name }}
     runs-on: ${{ inputs.runner-label }}
     steps:
 
