@@ -130,13 +130,13 @@ jobs:
             echo "framework_version=$(cat ${{ inputs.build-context }}/.dotnet-version)"   >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
           fi
-          if shopt -s nullglob; [[ -n $(echo package.json) ]]; then
+          if ls ${{ inputs.build-context }}/package.json >/dev/null 2>&1; then
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"         >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
           fi
-          if shopt -s nullglob; [[ -n $(echo pom.xml) ]]; then
+          if ls ${{ inputs.build-context }}/pom.xml >/dev/null 2>&1; then
             sudo apt-get -y -qq install xq
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
@@ -144,7 +144,7 @@ jobs:
             echo "version=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/version)"          >> $GITHUB_OUTPUT
             echo "sonar_project=$(cat ${{ inputs.build-context }}/pom.xml|xq -x /project/artifactId)" >> $GITHUB_OUTPUT
           fi
-          if shopt -s nullglob; [[ -n $(echo requirements.txt) ]]; then
+          if ls ${{ inputs.build-context }}/requirements.txt >/dev/null 2>&1; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
