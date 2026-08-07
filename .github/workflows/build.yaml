@@ -107,7 +107,7 @@ jobs:
       sonar_project: ${{ steps.prepare.outputs.sonar_project }}
     steps:
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Prepare
         id: prepare
@@ -149,7 +149,12 @@ jobs:
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
           fi
-
+          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer.json) ]]; then
+            echo "Detected: PHP"; 
+            echo "type=php"                                                                      >> $GITHUB_OUTPUT
+            echo "framework_version=$(cat ${{ inputs.build-context }}/.php-version)"             >> $GITHUB_OUTPUT
+            echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/composer.json)" >> $GITHUB_OUTPUT
+          fi
 
   scan-code:
     runs-on: ${{ inputs.runner-label }}
@@ -157,7 +162,7 @@ jobs:
     if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
     steps:
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -237,7 +242,7 @@ jobs:
       image-tag: ${{ needs.prepare.outputs.app_version }}-${{ needs.prepare.outputs.sha_short }}
     steps:
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4
         with:
