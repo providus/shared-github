@@ -149,7 +149,7 @@ jobs:
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
           fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer.json) ]]; then
+          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer*.json) ]]; then
             echo "Detected: PHP"; 
             echo "type=php"                                                                      >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.php-version)"             >> $GITHUB_OUTPUT
