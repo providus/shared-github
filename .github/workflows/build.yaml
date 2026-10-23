@@ -228,24 +228,6 @@ jobs:
           echo "${{ steps.quality-gate-check.outputs.project-status }}"
           echo "${{ steps.quality-gate-check.outputs.quality-gate-result }}"
 
-      - name: "Get Unit Tests report"
-        if: ${{ inputs.test-report-path != '' }}
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
-        with:
-          context: ${{ inputs.build-context }}
-          file: ${{ inputs.dockerfile }}
-          push: false
-          tags: |
-            test:test
-          target: test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-          outputs: type=docker
-        env:
-          DOCKER_BUILD_SUMMARY: false
-          DOCKER_BUILD_RECORD_UPLOAD: false
       - name: "Show Unit Test report"
         if: ${{ inputs.test-report-path != '' }}
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2     # v3
