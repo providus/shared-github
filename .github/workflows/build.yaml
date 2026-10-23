@@ -135,6 +135,7 @@ jobs:
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"         >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(cat ${{ inputs.build-context }}/sonar-project.properties|grep '^sonar.projectKey=' sonar-project.properties | cut -d'=' -f2-)" >> $GITHUB_OUTPUTUT
           fi
           if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             sudo apt-get -y -qq install xq
