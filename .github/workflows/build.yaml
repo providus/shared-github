@@ -62,12 +62,12 @@ on:
       test-report-path:
         required: false
         type: string
-        default: "target/surefire-reports/**/TEST-*.xml"
+        default: ""
         description: "Path to test report files"
       test-report-type:
         required: false
         type: string
-        default: "java-junit"
+        default: ""
         description: "Type of test report files"
       scan-image:
         required: false
