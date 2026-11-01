@@ -62,12 +62,12 @@ on:
       test-report-path:
         required: false
         type: string
-        default: "target/surefire-reports/**/TEST-*.xml"
+        default: ""
         description: "Path to test report files"
       test-report-type:
         required: false
         type: string
-        default: "java-junit"
+        default: ""
         description: "Type of test report files"
       scan-image:
         required: false
@@ -135,6 +135,7 @@ jobs:
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"         >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.build-context }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           fi
           if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             sudo apt-get -y -qq install xq
@@ -262,7 +263,7 @@ jobs:
       - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         name: "Build image"
         env:
-          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_SUMMARY: true
           DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: ${{ inputs.build-context }}
