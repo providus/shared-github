@@ -277,12 +277,25 @@ jobs:
           outputs: type=docker
           platforms: linux/amd64
 
-      - name: "Debug: List Docker images"
-        if: ${{ inputs.debug }}
+      - name: "List images"
+        #if: ${{ inputs.debug }}
         run: docker images
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        name: "Run vulnerability scanner"
+        name: "Run vulnerability scanner: image"
+        if: ${{ needs.prepare.outputs.scan-image }}
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: true
+        with:
+          hide-progress: true
+          ignore-unfixed: true
+          severity: ${{ inputs.scan-image }}
+          scan-type: fs
+          output: trivy-fs.sarif
+          scanners: vuln,secret
+
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        name: "Run vulnerability scanner: image"
         if: ${{ needs.prepare.outputs.scan-image }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
@@ -292,19 +305,19 @@ jobs:
           ignore-unfixed: true
           severity: ${{ inputs.scan-image }}
           scan-type: image
-          output: trivy.txt
+          output: trivy-image.sarif
           scanners: vuln
 
       - name: "Publish Trivy Output to Summary"
         if: ${{ needs.prepare.outputs.scan-image }}
         run: |
-          if [[ -s trivy.txt ]]; then
+          if [[ -s trivy-*.sarif ]]; then
             {
               echo "### Security Output"
               echo "<details><summary>Click to expand</summary>"
               echo ""
               echo '```terraform'
-              cat trivy.txt
+              cat trivy-*.sarif
               echo '```'
               echo "</details>"
             } >> $GITHUB_STEP_SUMMARY
