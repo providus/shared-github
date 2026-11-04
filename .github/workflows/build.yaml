@@ -282,7 +282,7 @@ jobs:
         run: docker images
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        name: "Run vulnerability scanner: image"
+        name: "Run vulnerability scanner: fs"
         if: ${{ needs.prepare.outputs.scan-image }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
