@@ -259,6 +259,7 @@ jobs:
         if: ${{ needs.prepare.outputs.scan-image }}
         with:
           version: v0.76.1
+          cache: true
 
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
