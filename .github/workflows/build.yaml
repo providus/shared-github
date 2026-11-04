@@ -324,7 +324,7 @@ jobs:
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
         with:
-          image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
+          image-ref: ${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           hide-progress: true
           ignore-unfixed: true
           severity: ${{ inputs.scan-image }}
