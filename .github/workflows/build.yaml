@@ -245,12 +245,20 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4
+        name: "Setup QEMU"
         with:
           platforms: linux/amd64
 
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd   # v4
+        name: "Setup Buildx"
         with:
           platforms: linux/amd64
+
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        name: "Setup security scanner"
+        if: ${{ needs.prepare.outputs.scan-image }}
+        with:
+          version: v0.76.1
 
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
@@ -277,7 +285,6 @@ jobs:
           platforms: linux/amd64
 
       - name: "List images"
-        #if: ${{ inputs.debug }}
         run: docker images
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
@@ -292,6 +299,7 @@ jobs:
           scan-type: fs
           output: trivy-fs.txt
           scanners: vuln,secret
+          skip-setup-trivy: true
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: image"
@@ -306,6 +314,7 @@ jobs:
           scan-type: image
           output: trivy-image.txt
           scanners: vuln
+          skip-setup-trivy: true
 
       - name: "Publish Trivy Output to Summary"
         if: ${{ needs.prepare.outputs.scan-image }}
