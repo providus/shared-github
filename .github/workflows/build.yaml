@@ -261,20 +261,20 @@ jobs:
           version: v0.76.1
           cache: true
 
-      - name: "Configure Maven mirror"
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<EOF
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+#      - name: "Configure Maven mirror"
+#        run: |
+#          mkdir -p ~/.m2
+#          cat > ~/.m2/settings.xml <<EOF
+#          <settings>
+#            <mirrors>
+#              <mirror>
+#                <id>central-mirror</id>
+#                <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+#                <mirrorOf>central</mirrorOf>
+#              </mirror>
+#            </mirrors>
+#          </settings>
+#          EOF
 
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
