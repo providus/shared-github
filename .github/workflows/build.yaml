@@ -261,9 +261,12 @@ jobs:
           version: v0.76.1
           cache: true
 
-      - name: "Configure Maven mirror"
+      - name: "Runner customization"
         if: ${{ needs.prepare.outputs.scan-image }}
         run: |
+          # Trivy needs a ~/.m2/settings.xml file to be present for scanning Java projects. 
+          # This step creates a minimal settings.xml file with a mirror configuration 
+          #   to avoid downloading from the default Maven Central repository.
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml <<EOF
           <settings>
@@ -302,7 +305,11 @@ jobs:
           platforms: linux/amd64
 
       - name: "List images"
-        run: docker images
+        run: |
+          docker images
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af
+          df -h /
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: fs"
