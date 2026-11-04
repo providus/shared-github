@@ -141,8 +141,8 @@ jobs:
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
             echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"                 >> $GITHUB_OUTPUT
-            echo "version=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" ${{ inputs.build-context }}/pom.xml)"          >> $GITHUB_OUTPUT
-            echo "sonar_project=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" ${{ inputs.build-context }}/pom.xml)" >> $GITHUB_OUTPUT
+            echo "version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:version', ns).text)")"          >> $GITHUB_OUTPUT
+            echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:artifactId', ns).text)")" >> $GITHUB_OUTPUT
           fi
           if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
             echo "Detected: Python";
