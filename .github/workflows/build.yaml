@@ -78,6 +78,10 @@ on:
         type: boolean
         default: false
         description: "Enable SonarQube code scan"
+      build-args:
+        required: false
+        type: string
+        description: "Additional build arguments for docker build"
     outputs:
       image-tag:
         description: 'Built image tag with version and commit SHA'
@@ -124,36 +128,32 @@ jobs:
           if [[ -n "$SCAN_IMAGE" ]]; then
             echo "scan-image=true"   >> $GITHUB_OUTPUT
           fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/*.{sln,csproj}) ]]; then
+          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/Directory.Build.props) ]]; then
             echo "Detected: DotNet"; 
             echo "type=dotnet"                                                            >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.dotnet-version)"   >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
-          fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/package*.json) ]]; then
+          elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/package*.json) ]]; then
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.nodejs-version)"         >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
             echo "sonar_project=$(grep projectKey ${{ inputs.build-context }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
-          fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
+          elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.java-version)"                 >> $GITHUB_OUTPUT
             echo "version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:version', ns).text)")"          >> $GITHUB_OUTPUT
             echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:artifactId', ns).text)")" >> $GITHUB_OUTPUT
-          fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
+          elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
-          fi
-          if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer*.json) ]]; then
+          elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer*.json) ]]; then
             echo "Detected: PHP"; 
             echo "type=php"                                                                      >> $GITHUB_OUTPUT
-            echo "framework_version=$(cat ${{ inputs.build-context }}/.php-version)"             >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/composer.json)" >> $GITHUB_OUTPUT
+          else
+            echo "Detected: Unknown"; 
+            echo "type=unknown" >> $GITHUB_OUTPUT
+            echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
           fi
 
   scan-code:
@@ -298,6 +298,7 @@ jobs:
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
+            ${{ inputs.build-args }}
           tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

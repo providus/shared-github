@@ -45,11 +45,14 @@ on:
 
 jobs:
   deploy:
-    environment: ${{ inputs.env-name }}
+    environment:
+      name: ${{ inputs.env-name }}
+      url: ${{ steps.deploy.outputs.app-url }}
     runs-on: ${{ inputs.runner-label }}
     steps:
 
       - name: "Deploy ${{ inputs.app-name }} to ArgoCD"
+        id: deploy
         shell: bash
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
@@ -60,6 +63,9 @@ jobs:
           sudo install -m 555 argocd* /usr/local/bin/argocd
           
           argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}" | awk '{print $1}' | awk -F/ '{print $2}'
+          
+          APP_URL=$(argocd app get argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }} -o json | jq -r '.status.summary.externalURLs[]')
+          echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
           
           for app in $(argocd app list|grep "^argocd/${{ inputs.tenant }}--${{ inputs.app-name }}--${{ inputs.env-name }}"|awk '{print $1}'|awk -F/ '{print $2}'); do
             # Check if app has multiple sources
