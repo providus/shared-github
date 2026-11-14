@@ -68,17 +68,13 @@ jobs:
             # Check if app has multiple sources
             source_count=$(argocd app get ${app} -o json | jq -r '.spec.sources | length // 0')
           
-            # Update the image tag for the app based on the number of sources
             if [[ "$source_count" -gt 1 ]]; then
               echo "Multi-source app detected (${source_count} sources), using --source-position 1"
               argocd app set ${app} --source-position 1 -p image.tag=${{ inputs.image-tag }};
-              APP_URL=$(argocd app get ${app} --source-position 1 -p image.tag=${{ inputs.image-tag }} -o json | jq -r '.status.summary.externalURLs[]')
             else
               echo "Single-source app detected"
               argocd app set ${app} -p image.tag=${{ inputs.image-tag }};
-              APP_URL=$(argocd app get ${app} -p image.tag=${{ inputs.image-tag }} -o json | jq -r '.status.summary.externalURLs[]')
             fi
-          
-            # Get the app URL and set it as an output variable
+            APP_URL=$(argocd app get ${app} -o json | jq -r '.status.summary.externalURLs[]')
             echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
           done
