@@ -81,7 +81,7 @@ on:
       build-args:
         required: false
         type: string
-        description: "Additional build arguments for docker build"
+        description: "Additional build arguments for docker build separated by semicolon (;), e.g., ARG1=value1;ARG2=value2"
     outputs:
       image-tag:
         description: 'Built image tag with version and commit SHA'
@@ -279,6 +279,11 @@ jobs:
             </mirrors>
           </settings>
           EOF
+          {
+              echo 'value<<EOF'
+              echo "${{ inputs.build-args }}" | tr ';' '\n'
+              echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
