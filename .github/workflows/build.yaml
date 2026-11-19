@@ -279,11 +279,22 @@ jobs:
             </mirrors>
           </settings>
           EOF
+
+      - name: "Prepare build args"
+        id: build-args
+        if: ${{ inputs.build-args != '' }}
+        env:
+          BUILD_ARGS: ${{ inputs.build-args }}
+        run: |
+          # Split "ARG1=v1;ARG2=v2" (or newline-separated input) into one ARG per line,
+          #   trimming whitespace and dropping empty entries.
+          delimiter="EOF_$RANDOM$RANDOM"
           {
-              echo 'value<<EOF'
-              echo "${{ inputs.build-args }}" | tr ';' '\n'
-              echo 'EOF'
+            echo "value<<${delimiter}"
+            printf '%s' "$BUILD_ARGS" | tr ';' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$' || true
+            echo "${delimiter}"
           } >> "$GITHUB_OUTPUT"
+          echo "Build args:"; printf '%s' "$BUILD_ARGS" | tr ';' '\n' | sed 's/^/  /'
 
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4
         name: "Login to ${{ inputs.cr-host }}"
@@ -303,7 +314,7 @@ jobs:
           push: false
           build-args: |
             FRAMEWORK_VERSION=${{ needs.prepare.outputs.framework_version }}
-            ${{ inputs.build-args }}
+            ${{ steps.build-args.outputs.value }}
           tags: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
