@@ -45,11 +45,14 @@ on:
 
 jobs:
   deploy:
-    environment: ${{ inputs.env-name }}
+    environment:
+      name: ${{ inputs.env-name }}
+      url: ${{ steps.deploy.outputs.app-url }}
     runs-on: ${{ inputs.runner-label }}
     steps:
 
       - name: "Deploy ${{ inputs.app-name }} to ArgoCD"
+        id: deploy
         shell: bash
         env:
           ARGOCD_SERVER: ${{ inputs.argocd-host }}
@@ -72,4 +75,6 @@ jobs:
               echo "Single-source app detected"
               argocd app set ${app} -p image.tag=${{ inputs.image-tag }};
             fi
+            APP_URL=$(argocd app get ${app} -o json | jq -r '.status.summary.externalURLs[]')
+            echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
           done
