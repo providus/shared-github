@@ -44,7 +44,12 @@ on:
         required: false
         type: string
         description: "Version of sonar scanner"
-        default: "6.2.1.4610"
+        default: "8.5.0.16571"
+      sonar-root:
+        required: false
+        type: string
+        default: "."
+        description: "Root directory for sonar scanner"
       env-name:
         required: false
         type: string
@@ -69,15 +74,10 @@ on:
         type: string
         default: ""
         description: "Type of test report files"
-      scan-image:
+      scan-security:
         required: false
         type: string
-        description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
-      enable-scan:
-        required: false
-        type: boolean
-        default: false
-        description: "Enable SonarQube code scan"
+        description: "Enable image/code vulnerability scanning by selecting threshold level (e.g., HIGH,CRITICAL or MEDIUM,HIGH,CRITICAL)"
       build-args:
         required: false
         type: string
@@ -103,7 +103,7 @@ jobs:
     outputs:
       repo_name: ${{ steps.prepare.outputs.repo_name }}
       sonar: ${{ steps.prepare.outputs.sonar }}
-      scan-image: ${{ steps.prepare.outputs.scan-image }}
+      scan-security: ${{ steps.prepare.outputs.scan-security }}
       type: ${{ steps.prepare.outputs.type }}
       framework_version: ${{ steps.prepare.outputs.framework_version }}
       sha_short: ${{ steps.prepare.outputs.sha_short }}
@@ -119,19 +119,20 @@ jobs:
         run: |
           sudo rm -f /var/lib/man-db/auto-update
           SONAR_TOKEN="${{ secrets.sonar-token }}"
-          SCAN_IMAGE="${{ inputs.scan-image }}"
+          SCAN_SECURITY="${{ inputs.scan-security }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
-          if [[ -n "$SCAN_IMAGE" ]]; then
-            echo "scan-image=true"   >> $GITHUB_OUTPUT
+          if [[ -n "$SCAN_SECURITY" ]]; then
+            echo "scan-security=true"   >> $GITHUB_OUTPUT
           fi
           if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/*.{sln,csproj}) ]]; then
             echo "Detected: DotNet"; 
             echo "type=dotnet"                                                            >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
+            echo "framework_version=$(grep -rhoE --include=*.*proj --include=*.props '<TargetFrameworks?>[^<]+' ${{ inputs.build-context }} | grep -oE 'net(coreapp)?[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | sort -V | tail -1)"  >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/package*.json) ]]; then
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
@@ -159,7 +160,7 @@ jobs:
   scan-code:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
-    if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
+    if: ${{ needs.prepare.outputs.sonar }}
     steps:
 
       - uses: actions/checkout@v7
@@ -256,13 +257,13 @@ jobs:
 
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         name: "Setup security scanner"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         with:
           version: v0.76.1
           cache: true
 
       - name: "Runner customization"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         run: |
           # Trivy needs a ~/.m2/settings.xml file to be present for scanning Java projects. 
           # This step creates a minimal settings.xml file with a mirror configuration 
@@ -328,13 +329,13 @@ jobs:
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: fs"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
         with:
           hide-progress: true
           ignore-unfixed: true
-          severity: ${{ inputs.scan-image }}
+          severity: ${{ inputs.scan-security }}
           scan-type: fs
           output: trivy-fs.txt
           scanners: vuln,secret
@@ -342,21 +343,21 @@ jobs:
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: image"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
         with:
           image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           hide-progress: true
           ignore-unfixed: true
-          severity: ${{ inputs.scan-image }}
+          severity: ${{ inputs.scan-security }}
           scan-type: image
           output: trivy-image.txt
           scanners: vuln
           skip-setup-trivy: true
 
       - name: "Publish Trivy Output to Summary"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         run: |
           if [[ -s trivy-image.txt ]]; then
             {
