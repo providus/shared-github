@@ -176,7 +176,7 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
-          cd ${{ inputs.build-context }}
+          cd ${{ inputs.sonar-root }}
           dotnet tool install --global dotnet-sonarscanner --version 5.15.0
           dotnet sonarscanner begin \
             -k:${{ needs.prepare.outputs.repo_name }} \
@@ -197,7 +197,7 @@ jobs:
         if: ${{ needs.prepare.outputs.type == 'java' }}
         shell: bash
         run: |
-          cd ${{ inputs.build-context }}
+          cd ${{ inputs.sonar-root }}
           export SONAR_TOKEN=${{ secrets.sonar-token }}
           export SONAR_HOST_URL=${{ inputs.sonar-host }}
           mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
@@ -208,7 +208,7 @@ jobs:
         if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432   # v8
         with:
-          projectBaseDir: ${{ inputs.build-context }}
+          projectBaseDir: ${{ inputs.sonar-root }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
