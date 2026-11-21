@@ -122,6 +122,7 @@ jobs:
           SCAN_SECURITY="${{ inputs.scan-security }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
+          echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
@@ -137,12 +138,10 @@ jobs:
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
-            echo "sonar_project=$(grep projectKey ${{ inputs.build-context }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
             echo "version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:version', ns).text)")"          >> $GITHUB_OUTPUT
-            echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:artifactId', ns).text)")" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
