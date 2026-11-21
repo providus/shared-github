@@ -176,7 +176,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ inputs.sonar-root }}
-          dotnet tool install --global dotnet-sonarscanner --version 5.15.0
+          dotnet tool install --global dotnet-sonarscanner --version 11.3.0.1175
           dotnet sonarscanner begin \
             -k:${{ needs.prepare.outputs.repo_name }} \
             -d:sonar.host.url=${{ inputs.sonar-host }} \
