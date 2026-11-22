@@ -222,7 +222,7 @@ jobs:
           SONAR_HOST_URL: ${{ inputs.sonar-host }}
 
       - name: "Get Sonar Scan report"
-        uses: bculibrk/sonarqube-quality-gate-action@patch-1
+        uses: phwt/sonarqube-quality-gate-action@e8842ff65b97bfa4fd4effe3ab0909f568d16e91  # v1
         id: quality-gate-check
         with:
           sonar-project-key: ${{ needs.prepare.outputs.sonar_project }}
