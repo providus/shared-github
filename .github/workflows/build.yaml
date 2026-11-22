@@ -229,6 +229,7 @@ jobs:
           sonar-host-url: ${{ inputs.sonar-host }}
           sonar-token: ${{ secrets.sonar-token }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request: ${{ github.event.pull_request.number }}
 
       - name: "Show Sonar Scan report"
         run: |
