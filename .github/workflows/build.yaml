@@ -178,7 +178,6 @@ jobs:
           cd ${{ inputs.sonar-root }}
           dotnet tool install --global dotnet-sonarscanner --version 11.3.0
           dotnet sonarscanner begin \
-            -k:${{ needs.prepare.outputs.repo_name }} \
             -d:sonar.host.url=${{ inputs.sonar-host }} \
             -d:sonar.login=${{ secrets.sonar-token }} \
             -v:${{ needs.prepare.outputs.app_version }}
