@@ -351,6 +351,8 @@ jobs:
         if: ${{ needs.prepare.outputs.scan-security }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
+          TRIVY_SKIP_DB_UPDATE: true
+          TRIVY_SKIP_JAVA_DB_UPDATE: true
         with:
           image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           hide-progress: true
