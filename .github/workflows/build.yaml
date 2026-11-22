@@ -173,10 +173,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
-        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+#      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
+#        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+#        with:
+#          dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654   # v5
+        if: ${{ needs.prepare.outputs.sonar }}
         with:
-          dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+          distribution: temurin
+          java-version: '17'
 
       - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
@@ -186,18 +192,13 @@ jobs:
           dotnet tool install --global dotnet-sonarscanner --version 11.3.0
           dotnet sonarscanner begin \
             -k:${{ needs.prepare.outputs.sonar_project }} \
+            -d:sonar.scanner.skipJreProvisioning=true \
             -d:sonar.host.url=${{ inputs.sonar-host }} \
             -d:sonar.login=${{ secrets.sonar-token }} \
             -v:${{ needs.prepare.outputs.app_version }}
           dotnet build
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           echo "SONAR=completed" >> $GITHUB_ENV
-
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654   # v5
-        if: ${{ needs.prepare.outputs.type == 'java' }}
-        with:
-          distribution: temurin
-          java-version: ${{ needs.prepare.outputs.framework_version }}
 
       - name: "Run SonarQube scan (java)"
         if: ${{ needs.prepare.outputs.type == 'java' }}
