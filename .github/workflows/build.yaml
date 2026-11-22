@@ -93,9 +93,6 @@ on:
       sonar-token:
         required: false
         description: "Sonar token"
-      snyk-token:
-        required: false
-        description: "Snyk token"
 
 jobs:
   prepare:
@@ -173,6 +170,7 @@ jobs:
         with:
           fetch-depth: 0
 
+## this to be removed since all Github runners have DotNet pre-installed
 #      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
 #        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
 #        with:
