@@ -75,6 +75,10 @@ jobs:
               echo "Single-source app detected"
               argocd app set ${app} -p image.tag=${{ inputs.image-tag }};
             fi
-            APP_URL=$(argocd app get ${app} -o json | jq -r '.status.summary.externalURLs[]')
-            echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
+            APP_URL=$(argocd app get ${app} -o json | jq -r '(.status.summary.externalURLs // [])[0] // empty')
+            if [[ -n "$APP_URL" ]]; then
+              echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
+            else
+              echo "No external URL found for ${app} (no Ingress or not yet synced)"
+            fi
           done

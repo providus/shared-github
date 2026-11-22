@@ -44,7 +44,12 @@ on:
         required: false
         type: string
         description: "Version of sonar scanner"
-        default: "6.2.1.4610"
+        default: "8.5.0.16571"
+      sonar-root:
+        required: false
+        type: string
+        default: "."
+        description: "Root directory for sonar scanner"
       env-name:
         required: false
         type: string
@@ -69,15 +74,10 @@ on:
         type: string
         default: ""
         description: "Type of test report files"
-      scan-image:
+      scan-security:
         required: false
         type: string
-        description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
-      enable-scan:
-        required: false
-        type: boolean
-        default: false
-        description: "Enable SonarQube code scan"
+        description: "Enable image/code vulnerability scanning by selecting threshold level (e.g., HIGH,CRITICAL or MEDIUM,HIGH,CRITICAL)"
       build-args:
         required: false
         type: string
@@ -93,9 +93,6 @@ on:
       sonar-token:
         required: false
         description: "Sonar token"
-      snyk-token:
-        required: false
-        description: "Snyk token"
 
 jobs:
   prepare:
@@ -103,7 +100,7 @@ jobs:
     outputs:
       repo_name: ${{ steps.prepare.outputs.repo_name }}
       sonar: ${{ steps.prepare.outputs.sonar }}
-      scan-image: ${{ steps.prepare.outputs.scan-image }}
+      scan-security: ${{ steps.prepare.outputs.scan-security }}
       type: ${{ steps.prepare.outputs.type }}
       framework_version: ${{ steps.prepare.outputs.framework_version }}
       sha_short: ${{ steps.prepare.outputs.sha_short }}
@@ -119,66 +116,81 @@ jobs:
         run: |
           sudo rm -f /var/lib/man-db/auto-update
           SONAR_TOKEN="${{ secrets.sonar-token }}"
-          SCAN_IMAGE="${{ inputs.scan-image }}"
+          SCAN_SECURITY="${{ inputs.scan-security }}"
           echo "sha_short=$(git rev-parse --short HEAD)"                    >> $GITHUB_OUTPUT 
           echo "repo_name=$(echo ${{ github.repository }} | cut -f2 -d/ )"  >> $GITHUB_OUTPUT
+          echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           if [[ -n "$SONAR_TOKEN" ]]; then
             echo "sonar=true"   >> $GITHUB_OUTPUT
           fi
-          if [[ -n "$SCAN_IMAGE" ]]; then
-            echo "scan-image=true"   >> $GITHUB_OUTPUT
+          if [[ -n "$SCAN_SECURITY" ]]; then
+            echo "scan-security=true"   >> $GITHUB_OUTPUT
           fi
           if shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/*.{sln,csproj}) ]]; then
             echo "Detected: DotNet"; 
             echo "type=dotnet"                                                            >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
+            echo "framework_version=$(grep -rhoE --include=*.*proj --include=*.props '<TargetFrameworks?>[^<]+' ${{ inputs.build-context }} | grep -oE 'net(coreapp)?[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | sort -V | tail -1)"  >> $GITHUB_OUTPUT
+            echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; print(next(p.text for p in ET.parse('SonarQube.Analysis.xml').findall('.//{*}Property') if p.attrib.get('Name') == 'sonar.projectKey'))")" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/package*.json) ]]; then
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
-            echo "sonar_project=$(grep projectKey ${{ inputs.build-context }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
             echo "version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:version', ns).text)")"          >> $GITHUB_OUTPUT
-            echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:artifactId', ns).text)")" >> $GITHUB_OUTPUT
+            echo "framework_version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:properties/m:java.version', ns).text)")"   >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer*.json) ]]; then
             echo "Detected: PHP"; 
             echo "type=php"                                                                      >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/composer.json)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           else
             echo "Detected: Unknown"; 
             echo "type=unknown" >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           fi
 
   scan-code:
     runs-on: ${{ inputs.runner-label }}
     needs: [prepare]
-    if: ${{ needs.prepare.outputs.sonar && inputs.enable-scan }}
+    if: ${{ needs.prepare.outputs.sonar }}
     steps:
 
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
-        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+## this to be removed since all Github runners have DotNet pre-installed
+#      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7   # v5
+#        if: ${{ needs.prepare.outputs.type == 'dotnet' }}
+#        with:
+#          dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654   # v5
+        if: ${{ needs.prepare.outputs.sonar }}
         with:
-          dotnet-version: ${{ needs.prepare.outputs.framework_version }}
+          distribution: temurin
+          java-version: '17'
 
       - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
         shell: bash
         run: |
-          cd ${{ inputs.build-context }}
-          dotnet tool install --global dotnet-sonarscanner --version 5.15.0
+          cd ${{ inputs.sonar-root }}
+          dotnet tool install --global dotnet-sonarscanner --version 11.3.0
           dotnet sonarscanner begin \
-            -k:${{ needs.prepare.outputs.repo_name }} \
+            -k:${{ needs.prepare.outputs.sonar_project }} \
+            -d:sonar.scanner.skipJreProvisioning=true \
             -d:sonar.host.url=${{ inputs.sonar-host }} \
             -d:sonar.login=${{ secrets.sonar-token }} \
             -v:${{ needs.prepare.outputs.app_version }}
@@ -186,17 +198,11 @@ jobs:
           dotnet sonarscanner end -d:sonar.login=${{ secrets.sonar-token }}
           echo "SONAR=completed" >> $GITHUB_ENV
 
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654   # v5
-        if: ${{ needs.prepare.outputs.type == 'java' }}
-        with:
-          distribution: temurin
-          java-version: ${{ needs.prepare.outputs.framework_version }}
-
       - name: "Run SonarQube scan (java)"
         if: ${{ needs.prepare.outputs.type == 'java' }}
         shell: bash
         run: |
-          cd ${{ inputs.build-context }}
+          cd ${{ inputs.sonar-root }}
           export SONAR_TOKEN=${{ secrets.sonar-token }}
           export SONAR_HOST_URL=${{ inputs.sonar-host }}
           mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
@@ -207,7 +213,7 @@ jobs:
         if: ${{ !env.SONAR }}
         uses: sonarsource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432   # v8
         with:
-          projectBaseDir: ${{ inputs.build-context }}
+          projectBaseDir: ${{ inputs.sonar-root }}
           scannerVersion: ${{ inputs.sonar-scanner-version }}
         env:
           SONAR_TOKEN: ${{ secrets.sonar-token }}
@@ -256,13 +262,13 @@ jobs:
 
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         name: "Setup security scanner"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         with:
           version: v0.76.1
           cache: true
 
       - name: "Runner customization"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         run: |
           # Trivy needs a ~/.m2/settings.xml file to be present for scanning Java projects. 
           # This step creates a minimal settings.xml file with a mirror configuration 
@@ -328,13 +334,13 @@ jobs:
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: fs"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
         with:
           hide-progress: true
           ignore-unfixed: true
-          severity: ${{ inputs.scan-image }}
+          severity: ${{ inputs.scan-security }}
           scan-type: fs
           output: trivy-fs.txt
           scanners: vuln,secret
@@ -342,21 +348,23 @@ jobs:
 
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         name: "Run vulnerability scanner: image"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         env:
           TRIVY_DISABLE_VEX_NOTICE: true
+          TRIVY_SKIP_DB_UPDATE: true
+          TRIVY_SKIP_JAVA_DB_UPDATE: true
         with:
           image-ref: ${{ inputs.cr-host}}/${{ inputs.image-name }}:${{ needs.prepare.outputs.app_version}}-${{ needs.prepare.outputs.sha_short }}${{ inputs.tag-suffix }}
           hide-progress: true
           ignore-unfixed: true
-          severity: ${{ inputs.scan-image }}
+          severity: ${{ inputs.scan-security }}
           scan-type: image
           output: trivy-image.txt
           scanners: vuln
           skip-setup-trivy: true
 
       - name: "Publish Trivy Output to Summary"
-        if: ${{ needs.prepare.outputs.scan-image }}
+        if: ${{ needs.prepare.outputs.scan-security }}
         run: |
           if [[ -s trivy-image.txt ]]; then
             {

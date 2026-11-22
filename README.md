@@ -1,6 +1,6 @@
 # Build & Deploy Reusable Workflow (shared.yaml)
 
-This workflow is a reusable GitHub Actions pipeline for building, scanning, and deploying containerized applications. It orchestrates the `build.yaml` and `deploy.yaml` workflows, supporting multiple languages and frameworks, including Go, JavaScript (Node.js), PHP, .NET, Java, and Python.
+This workflow is a reusable GitHub Actions pipeline for building, scanning, and deploying containerized applications. It orchestrates the `build.yaml` and `deploy.yaml` workflows, supporting multiple languages and frameworks, including JavaScript (Node.js), PHP, .NET, Java, and Python.
 
 ## Inputs
 
@@ -9,21 +9,25 @@ This workflow is a reusable GitHub Actions pipeline for building, scanning, and 
 | app-name              | Yes      |                                               | Application name                                 |
 | argocd-host           | Yes      |                                               | ArgoCD hostname                                  |
 | argocd-version        | No       | 2.14.11                                       | ArgoCD binary version                            |
+| build-args            | No       |                                               | Additional Docker build args separated by semicolon (or newline), e.g. `ARG1=value1;ARG2=value2` |
 | build-context         | No       | .                                             | Build context for Docker build                   |
 | cr-host               | No       | docker.io                                     | Container registry hostname                      |
 | cr-login              | No       | providus                                      | Username for container registry                  |
 | debug                 | No       | false                                         | Enable debug mode                                |
 | dockerfile            | No       | Dockerfile                                    | Path to Dockerfile                               |
-| enable-scan           | No       | false                                         | Enable SonarQube code scan                       |
 | env-name              | No       | dev                                           | Environment name                                 |
-| image-name            | Yes      |                                               | Name of the image (e.g., providus/tenant-service)|
-| runner-label          | No       | ubuntu-24.04                                  | Runner label                                     |
-| scan-image            | No       |                                               | Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL) |
+| image-name            | Yes      |                                               | Name of the image, e.g. `quay.io/providus/tenant-service` or `providus/tenant-service` |
+| runner-label          | No       | ubuntu-24.04                                  | Runner label (used by both build and deploy)     |
+| scan-security         | No       |                                               | Enable image/code vulnerability scanning by selecting severity levels, e.g. `HIGH,CRITICAL` or `MEDIUM,HIGH,CRITICAL` |
 | sonar-host            | No       | https://sonarqube.infra.providus.rs/          | SonarQube server address                         |
-| sonar-scanner-version | No       | 6.2.1.4610                                    | Sonar scanner version                            |
+| sonar-root            | No       | .                                             | Root directory for Sonar scanner (location of `sonar-project.properties`) |
+| sonar-scanner-version | No       | 8.5.0.16571                                   | Sonar scanner version (generic scan only)        |
+| tag-suffix            | No       | (empty)                                       | Suffix added to the image tag, e.g. `-SEED` results in: `providus/tenant-service:1.0-abc1234-SEED` |
 | tenant                | Yes      |                                               | Tenant name                                      |
-| test-report-path      | No       | target/surefire-reports/**/TEST-*.xml         | Path to test report files                        |
-| test-report-type      | No       | java-junit                                    | Type of test report files                        |
+| test-report-path      | No       | (empty)                                       | Path to test report files; test report is published only when set, e.g. `target/surefire-reports/**/TEST-*.xml` |
+| test-report-type      | No       | (empty)                                       | Type of test report files (`dorny/test-reporter` reporter), e.g. `java-junit` |
+
+The SonarQube code scan runs when `sonar-token` is provided. All inputs are passed through to `build.yaml` / `deploy.yaml`; see those sections for details.
 
 ## Secrets
 
@@ -32,15 +36,11 @@ This workflow is a reusable GitHub Actions pipeline for building, scanning, and 
 | cr-pass      | Yes      | Registry token             |
 | argocd-token | Yes      | ArgoCD token               |
 | sonar-token  | No       | SonarQube token            |
-| snyk-token   | No       | Snyk token                 |
 
 ## Jobs
 
 ### build
 - Calls `build.yaml` workflow to build and push Docker images.
-- Detects project type (Java, .NET, Node.js, Python, Go, etc.).
-- Runs SonarQube code scan if `enable-scan` is true and `sonar-token` is provided.
-- Optionally runs image vulnerability scanning if `scan-image` threshold is specified.
 - Outputs `image-tag` for use in the deploy job.
 
 ### deploy
@@ -61,63 +61,73 @@ jobs:
       argocd-host: your-argocd.example.com
       tenant: your-tenant
       app-name: your-app
+      scan-security: HIGH,CRITICAL
     secrets:
       cr-pass: ${{ secrets.CR_PASS }}
       argocd-token: ${{ secrets.ARGOCD_TOKEN }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-      snyk-token: ${{ secrets.SNYK_TOKEN }}
 ```
 
 # Build Workflow (`build.yaml`)
 
-This reusable GitHub Actions workflow builds, scans, and pushes Docker images for containerized applications. It supports multiple languages and frameworks, including:
-- Go (detected via `go.mod`)
-- JavaScript/Node.js (detected via `package.json`)
-- PHP
-- .NET (detected via `.csproj`)
-- Java (detected via `pom.xml`)
-- Python (detected via `requirements.txt`)
+This reusable GitHub Actions workflow builds, scans, and pushes Docker images for containerized applications. Project type is detected from files in `build-context`:
+
+| Type    | Detected via                 | Version source                    | Framework version (`FRAMEWORK_VERSION` build arg) |
+|---------|------------------------------|-----------------------------------|---------------------------------------------------|
+| .NET    | `*.sln` or `*.csproj`        | `.version` file                   | Highest `<TargetFramework(s)>` in `*.*proj` / `*.props` |
+| Node.js | `package*.json`              | `version` in `package.json`       |                                                   |
+| Java    | `pom*.xml`                   | `<version>` in `pom.xml`          | `<java.version>` property in `pom.xml`            |
+| Python  | `requirements*.txt`          | `.version` file                   |                                                   |
+| PHP     | `composer*.json`             | `version` in `composer.json`      |                                                   |
+| Unknown | anything else (e.g. Go)      | `.version` file                   |                                                   |
+
+The SonarQube project key is read from `projectKey` in `<sonar-root>/sonar-project.properties`, or for .NET from `sonar.projectKey` in `SonarQube.Analysis.xml`.
 
 ## Main Steps
 
-1. **prepare**: Detects project type and version, sets outputs for later jobs.
-2. **scan-code**: Runs SonarQube scan if `enable-scan` is true and `sonar-token` is provided. Supports .NET, Java, and generic projects. Publishes test reports.
-3. **build**: Builds Docker images using buildx, optionally scans with Trivy if `scan-image` threshold is specified, and pushes to registry.
+1. **prepare**: Detects project type, version and Sonar project key; sets outputs for later jobs.
+2. **scan-code**: Runs only when `sonar-token` is provided. Sets up Java 17 and runs the SonarQube scan from `sonar-root`:
+   - .NET: `dotnet-sonarscanner`
+   - Java: `sonar-maven-plugin` via `mvn verify`
+   - Others: `sonarqube-scan-action` using `sonar-scanner-version`
+
+   Then fetches and prints the quality gate result and, if `test-report-path` is set, publishes the unit test report.
+3. **build**: Builds the Docker image with buildx (passing `FRAMEWORK_VERSION` and any `build-args`). If `scan-security` is set, runs Trivy filesystem (vulnerabilities + secrets) and image scans at the given severities and publishes the output to the job summary. Finally pushes the image to the registry.
 
 ## Inputs
 
 | Name                  | Required | Default Value                                 | Description                                      |
 |-----------------------|----------|-----------------------------------------------|--------------------------------------------------|
 | app-name              | Yes      |                                               | Application name                                 |
+| build-args            | No       |                                               | Additional Docker build args separated by semicolon (or newline), e.g. `ARG1=value1;ARG2=value2` |
 | build-context         | No       | .                                             | Build context for docker build                   |
 | cr-host               | No       | docker.io                                     | Container registry hostname                      |
 | cr-login              | No       | providus                                      | Username for container registry                  |
 | debug                 | No       | false                                         | Enable debug mode                                |
 | dockerfile            | No       | Dockerfile                                    | Path to Dockerfile                               |
-| enable-scan           | No       | false                                         | Enable SonarQube code scan                       |
 | env-name              | No       | dev                                           | Environment name                                 |
-| image-name            | Yes      |                                               | Name of the image (e.g., providus/tenant-service)|
+| image-name            | Yes      |                                               | Name of the image, e.g. `quay.io/providus/tenant-service` or `providus/tenant-service` |
 | runner-label          | No       | ubuntu-24.04                                  | Runner label                                     |
-| scan-image            | No       |                                               | Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL) |
+| scan-security         | No       |                                               | Enable image/code vulnerability scanning by selecting severity levels, e.g. `HIGH,CRITICAL` or `MEDIUM,HIGH,CRITICAL` |
 | sonar-host            | No       | https://sonarqube.infra.providus.rs/          | SonarQube server address                         |
-| sonar-scanner-version | No       | 6.2.1.4610                                    | Sonar scanner version                            |
-| tag-suffix            | No       | (empty)                                       | Suffix added to the image tag, e.g., -SEED results in: providus/tenant-service:1.0-abc1234-SEED |
-| test-report-path      | No       | target/surefire-reports/**/TEST-*.xml         | Path to test report files                        |
-| test-report-type      | No       | java-junit                                    | Type of test report files                        |
+| sonar-root            | No       | .                                             | Root directory for Sonar scanner (location of `sonar-project.properties`) |
+| sonar-scanner-version | No       | 8.5.0.16571                                   | Sonar scanner version (generic scan only)        |
+| tag-suffix            | No       | (empty)                                       | Suffix added to the image tag, e.g. `-SEED` results in: `providus/tenant-service:1.0-abc1234-SEED` |
+| test-report-path      | No       | (empty)                                       | Path to test report files; test report is published only when set, e.g. `target/surefire-reports/**/TEST-*.xml` |
+| test-report-type      | No       | (empty)                                       | Type of test report files (`dorny/test-reporter` reporter), e.g. `java-junit` |
 
 ## Outputs
 
 | Name      | Description                                |
 |-----------|--------------------------------------------|
-| image-tag | Built image tag with version and commit SHA |
+| image-tag | Built image tag (`<version>-<short sha>`, without `tag-suffix`) |
 
 ## Secrets
 
-| Name         | Required | Description                |
-|--------------|----------|----------------------------|
-| cr-pass      | Yes      | Registry token             |
-| sonar-token  | No       | SonarQube token            |
-| snyk-token   | No       | Snyk token                 |
+| Name         | Required | Description                                       |
+|--------------|----------|---------------------------------------------------|
+| cr-pass      | Yes      | Registry token                                    |
+| sonar-token  | No       | SonarQube token; when set, the code scan is run   |
 
 ## Usage
 
@@ -132,10 +142,13 @@ jobs:
     with:
       image-name: providus/tenant-service
       app-name: tenant-service
+      scan-security: HIGH,CRITICAL
+      build-args: "ARG1=value1;ARG2=value2"
+      test-report-path: target/surefire-reports/**/TEST-*.xml
+      test-report-type: java-junit
     secrets:
       cr-pass: ${{ secrets.CR_PASS }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-      snyk-token: ${{ secrets.SNYK_TOKEN }}
 ```
 
 # Deploy Workflow (`deploy.yaml`)
@@ -145,25 +158,27 @@ This reusable GitHub Actions workflow deploys applications using ArgoCD. It upda
 ## Main Steps
 
 1. **Deploy**: Downloads the ArgoCD CLI binary and updates the application image tag in ArgoCD.
-   - Detects if the application has multiple sources and applies the appropriate configuration.
-   - Updates the `image.tag` parameter for the specified tenant, app-name, and environment.
+   - Finds all ArgoCD apps matching `<tenant>--<app-name>--<env-name>*`.
+   - Detects if the application has multiple sources and applies the appropriate configuration (`--source-position 1` for multi-source apps).
+   - Updates the `image.tag` parameter.
+   - Runs in the GitHub environment `env-name`, using the app's first external URL (if any) as the environment URL.
 
 ## Inputs
 
 | Name              | Required | Default Value | Description                    |
-|-------------------|----------|----------------|--------------------------------|
-| app-name          | Yes      |                | Application name               |
-| argocd-host       | Yes      |                | ArgoCD hostname                |
-| argocd-version    | No       | 2.14.11        | ArgoCD binary version          |
-| debug             | No       | false          | Enable debug output            |
-| env-name          | No       | dev            | Environment name               |
-| image-tag         | Yes      |                | Image tag to deploy            |
-| runner-label      | No       | ubuntu-24.04   | Runner label                   |
-| tenant            | Yes      |                | Tenant name                    |
+|-------------------|----------|---------------|--------------------------------|
+| app-name          | Yes      |               | Application name               |
+| argocd-host       | Yes      |               | ArgoCD hostname                |
+| argocd-version    | No       | 2.14.11       | ArgoCD binary version          |
+| debug             | No       | false         | Enable debug output            |
+| env-name          | No       | dev           | Environment name               |
+| image-tag         | Yes      |               | Image tag to deploy            |
+| runner-label      | No       | ubuntu-slim   | Runner label                   |
+| tenant            | Yes      |               | Tenant name                    |
 
 ## Secrets
 
-| Name           | Required | Description      |
+| Name           | Required | Description       |
 |----------------|----------|-------------------|
 | argocd-token   | Yes      | ArgoCD token      |
 
@@ -183,4 +198,3 @@ jobs:
     secrets:
       argocd-token: ${{ secrets.ARGOCD_TOKEN }}
 ```
-

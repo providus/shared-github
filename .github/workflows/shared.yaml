@@ -27,6 +27,11 @@ on:
         required: true
         type: string
         description: "Name of the image, format quay.io/providus/tenant-service or just providus/tenant-service"
+      tag-suffix:
+        required: false
+        type: string
+        default: ""
+        description: "Suffix added to the image tag, value of -SEED results in: providus/tenant-service:1.0-abc1234-SEED"
       argocd-host:
         required: true
         type: string
@@ -52,7 +57,12 @@ on:
         required: false
         type: string
         description: "Version of sonar scanner"
-        default: "6.2.1.4610"
+        default: "8.5.0.16571"
+      sonar-root:
+        required: false
+        type: string
+        default: "."
+        description: "Root directory for sonar scanner"
       env-name:
         required: false
         type: string
@@ -70,22 +80,21 @@ on:
       test-report-path:
         required: false
         type: string
-        default: "target/surefire-reports/**/TEST-*.xml"
+        default: ""
         description: "Path to test report files"
       test-report-type:
         required: false
         type: string
-        default: "java-junit"
+        default: ""
         description: "Type of test report files"
-      scan-image:
+      scan-security:
         required: false
         type: string
-        description: "Enable image vulnerability scanning by selecting threshold level (e.g., HIGH or CRITICAL)"
-      enable-scan:
+        description: "Enable image/code vulnerability scanning by selecting threshold level (e.g., HIGH,CRITICAL or MEDIUM,HIGH,CRITICAL)"
+      build-args:
         required: false
-        type: boolean
-        default: false
-        description: "Enable SonarQube code scan"
+        type: string
+        description: "Additional build arguments for docker build separated by semicolon (;), e.g., ARG1=value1;ARG2=value2"
     secrets:
       cr-pass:
         required: true
@@ -96,9 +105,6 @@ on:
       sonar-token:
         required: false
         description: "Sonar token"
-      snyk-token:
-        required: false
-        description: "Snyk token"
 
 jobs:
   build:
@@ -107,19 +113,23 @@ jobs:
       cr-host: ${{ inputs.cr-host }}
       cr-login: ${{ inputs.cr-login }}
       image-name: ${{ inputs.image-name }}
+      tag-suffix: ${{ inputs.tag-suffix }}
       build-context: ${{ inputs.build-context }}
       dockerfile: ${{ inputs.dockerfile }}
       app-name: ${{ inputs.app-name }}
       sonar-host: ${{ inputs.sonar-host }}
       sonar-scanner-version: ${{ inputs.sonar-scanner-version }}
+      sonar-root: ${{ inputs.sonar-root }}
+      env-name: ${{ inputs.env-name }}
+      runner-label: ${{ inputs.runner-label }}
+      debug: ${{ inputs.debug }}
       test-report-path: ${{ inputs.test-report-path }}
       test-report-type: ${{ inputs.test-report-type }}
-      scan-image: ${{ inputs.scan-image }}
-      enable-scan: ${{ inputs.enable-scan }}
+      scan-security: ${{ inputs.scan-security }}
+      build-args: ${{ inputs.build-args }}
     secrets:
       cr-pass: ${{ secrets.cr-pass }}
       sonar-token: ${{ secrets.sonar-token }}
-      snyk-token: ${{ secrets.snyk-token }}
   deploy:
     uses: ./.github/workflows/deploy.yaml
     needs: build
