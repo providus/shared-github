@@ -134,26 +134,33 @@ jobs:
             echo "type=dotnet"                                                            >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"                    >> $GITHUB_OUTPUT
             echo "framework_version=$(grep -rhoE --include=*.*proj --include=*.props '<TargetFrameworks?>[^<]+' ${{ inputs.build-context }} | grep -oE 'net(coreapp)?[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | sort -V | tail -1)"  >> $GITHUB_OUTPUT
+            echo "sonar_project=$(python3 -c "import xml.etree.ElementTree as ET; print(next(p.text for p in ET.parse('SonarQube.Analysis.xml').findall('.//{*}Property') if p.attrib.get('Name') == 'sonar.projectKey'))")" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/package*.json) ]]; then
             echo "Detected: NodeJS"; 
             echo "type=nodejs"                                                                  >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/package.json)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/pom*.xml) ]]; then
             echo "Detected: Java"; 
             echo "type=java"                                                                          >> $GITHUB_OUTPUT
             echo "version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:version', ns).text)")"          >> $GITHUB_OUTPUT
+            echo "framework_version=$(python3 -c "import xml.etree.ElementTree as ET; ns={'m':'http://maven.apache.org/POM/4.0.0'}; print(ET.parse('${{ inputs.build-context }}/pom.xml').getroot().find('m:properties/m:java.version', ns).text)")"   >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/requirements*.txt) ]]; then
             echo "Detected: Python";
             echo "type=python"                                          >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)"  >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           elif shopt -s nullglob; [[ -n $(echo ${{ inputs.build-context }}/composer*.json) ]]; then
             echo "Detected: PHP"; 
             echo "type=php"                                                                      >> $GITHUB_OUTPUT
             echo "version=$(jq --raw-output .version ${{ inputs.build-context }}/composer.json)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           else
             echo "Detected: Unknown"; 
             echo "type=unknown" >> $GITHUB_OUTPUT
             echo "version=$(cat ${{ inputs.build-context }}/.version)" >> $GITHUB_OUTPUT
+            echo "sonar_project=$(grep projectKey ${{ inputs.sonar-root }}/sonar-project.properties|cut -d\= -f2-)" >> $GITHUB_OUTPUT
           fi
 
   scan-code:
@@ -178,6 +185,7 @@ jobs:
           cd ${{ inputs.sonar-root }}
           dotnet tool install --global dotnet-sonarscanner --version 11.3.0
           dotnet sonarscanner begin \
+            -k:${{ inputs.image-name }} \
             -d:sonar.host.url=${{ inputs.sonar-host }} \
             -d:sonar.login=${{ secrets.sonar-token }} \
             -v:${{ needs.prepare.outputs.app_version }}
