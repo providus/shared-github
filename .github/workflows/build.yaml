@@ -180,7 +180,7 @@ jobs:
         if: ${{ needs.prepare.outputs.sonar }}
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: "Run SonarQube scan (dotnet)"
         if: ${{ needs.prepare.outputs.type == 'dotnet' }}
